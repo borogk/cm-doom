@@ -49,6 +49,7 @@ struct
   int overshoot;
   int warp_player;
   int hide_player;
+  int ga_buffer_len;
   float speed;
   float x0;
   float y0;
@@ -90,6 +91,17 @@ dboolean cman_auto_exit = false;
 // Track active state to detect changes
 dboolean cman_was_active = false;
 
+// Angle buffer
+struct
+{
+  float values[1024];
+  int index;
+  float sum;
+} cman_angle_buffer;
+
+// Previous tangent angle (relevant to Bezier)
+float prev_tangent_angle;
+
 // Converts ZDoom-style angle (between 0.0 and 1.0) to BAM.
 angle_t CMAN_FromZDoomAngle(float a)
 {
@@ -115,8 +127,29 @@ float CMAN_VectorAngle(float x, float y)
   return CMAN_ToZDoomAngle(a);
 }
 
+// Corrects an angle, that crosses zero threshold (represents EAST) in relation to some previous angle value.
+// The result should move two angles closer together.
+// Examples:
+//   given prev_angle=0.99, angle=0.01 is corrected to 1.01.
+//   given prev_angle=0.01, angle=0.99 is corrected -0.01.
+float CMAN_FixAngleCrossingEast(float angle, float prev_angle)
+{
+  if (angle - prev_angle < -0.5f)
+  {
+    // Crossed 1.0 moving counter-clockwise
+    return angle + 1.f;
+  }
+  else if (angle - prev_angle > 0.5f)
+  {
+    // Crossed 0.0 moving clockwise
+    return angle - 1.f;
+  }
+
+  return angle;
+}
+
 // Outputs next values for Linear path mode.
-float CMAN_NextLinearValues(float t)
+float CMAN_NextLinearValues(float t, dboolean overshoot)
 {
   float progress;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
@@ -128,7 +161,7 @@ float CMAN_NextLinearValues(float t)
     progress = t / cman.speed;
   }
 
-  if (cman.overshoot || progress < 1.f)
+  if (overshoot || progress < 1.f)
   {
     cman_out.x = cman.x0 + (cman.x1 - cman.x0) * progress;
     cman_out.y = cman.y0 + (cman.y1 - cman.y0) * progress;
@@ -154,7 +187,7 @@ float CMAN_NextLinearValues(float t)
 }
 
 // Outputs next values for Radial path mode.
-float CMAN_NextRadialValues(float t)
+float CMAN_NextRadialValues(float t, dboolean overshoot)
 {
   float progress;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
@@ -167,7 +200,7 @@ float CMAN_NextRadialValues(float t)
   }
 
   float ra, r, cx, cy;
-  if (cman.overshoot || progress < 1.f)
+  if (overshoot || progress < 1.f)
   {
     ra = cman.ra0 + (cman.ra1 - cman.ra0) * progress;
     r = cman.r0 + (cman.r1 - cman.r0) * progress;
@@ -201,11 +234,11 @@ float CMAN_NextRadialValues(float t)
 }
 
 // Outputs next values for Bezier path mode.
-float CMAN_NextBezierValues(float t)
+float CMAN_NextBezierValues(float t, dboolean overshoot)
 {
   float progress = t / cman.speed;
 
-  if (cman.overshoot || progress < 1.f)
+  if (overshoot || progress < 1.f)
   {
     float p = progress;
     float p2 = p * p;
@@ -237,9 +270,83 @@ float CMAN_NextBezierValues(float t)
     float prevx = cman.x1 + omp2 * (cman.x0 - cman.x1) + p2 * (cman.x2 - cman.x1);
     float prevy = cman.y1 + omp2 * (cman.y0 - cman.y1) + p2 * (cman.y2 - cman.y1);
 
-    float tangentAngle = CMAN_VectorAngle(cman_out.x - prevx, cman_out.y - prevy);
-    cman_out.a += tangentAngle;
+    float tangent_angle = CMAN_VectorAngle(cman_out.x - prevx, cman_out.y - prevy);
+    if (cman_was_active)
+      tangent_angle = CMAN_FixAngleCrossingEast(tangent_angle, prev_tangent_angle);
+
+    prev_tangent_angle = tangent_angle;
+    cman_out.a += tangent_angle;
   }
+
+  return progress;
+}
+
+// Outputs next values, depending on the path mode.
+// The output is unbuffered, as in no angle filtering is applied.
+float CMAN_NextValuesUnbuffered(float t, dboolean overshoot)
+{
+  if (cman.path_mode == CMAN_PATH_MODE_LINEAR)
+    return CMAN_NextLinearValues(t, overshoot);
+  else if (cman.path_mode == CMAN_PATH_MODE_RADIAL)
+    return CMAN_NextRadialValues(t, overshoot);
+  else if (cman.path_mode == CMAN_PATH_MODE_BEZIER)
+    return CMAN_NextBezierValues(t, overshoot);
+
+  return 1.f;
+}
+
+// Calculate next values for cman_angle_buffer.
+void CMAN_NextBufferValues(float t)
+{
+  float next_buffer_t = t + 1.f * (cman.ga_buffer_len / 2);
+
+  if (!cman_was_active)
+  {
+    // Fill the whole buffer first time around
+    cman_angle_buffer.sum = 0;
+    float buffer_t = next_buffer_t;
+    for (int i = cman.ga_buffer_len - 1; i >= 0; i--)
+    {
+      CMAN_NextValuesUnbuffered(buffer_t, true);
+      cman_angle_buffer.values[i] = cman_out.a;
+      cman_angle_buffer.sum += cman_out.a;
+      buffer_t -= 1.f;
+    }
+  }
+  else
+  {
+    // Update only the buffer's difference
+    CMAN_NextValuesUnbuffered(next_buffer_t, true);
+    cman_angle_buffer.sum -= cman_angle_buffer.values[cman_angle_buffer.index];
+    cman_angle_buffer.sum += cman_out.a;
+    cman_angle_buffer.values[cman_angle_buffer.index] = cman_out.a;
+  }
+
+  // Advance the cyclic buffer index
+  cman_angle_buffer.index++;
+  if (cman_angle_buffer.index == cman.ga_buffer_len)
+    cman_angle_buffer.index = 0;
+}
+
+// Outputs next values, depending on the path mode.
+// Applies angle filtering if needed.
+float CMAN_NextValues(float t)
+{
+  dboolean angle_buffering_needed =
+    cman.ga_buffer_len > 1 &&
+    cman.path_mode == CMAN_PATH_MODE_BEZIER &&
+    cman.angle_mode == CMAN_ANGLE_MODE_RELATIVE;
+
+  // Calculate angle buffer data first to not mess with the output below
+  if (angle_buffering_needed)
+    CMAN_NextBufferValues(t);
+
+  // Calculate next positional and angle values, this should output to cman_out
+  float progress = CMAN_NextValuesUnbuffered(t, cman.overshoot);
+
+  // Adjust the angle using the buffer if needed
+  if (angle_buffering_needed)
+    cman_out.a = cman_angle_buffer.sum / cman.ga_buffer_len;
 
   return progress;
 }
@@ -265,15 +372,9 @@ int CMAN_Ticker()
   if (cman_time < 0)
     return false;
 
-  // Calculate next camera values depending on the path mode
+  // Calculate next camera values
   float t = (float)cman_time;
-  float progress;
-  if (cman.path_mode == CMAN_PATH_MODE_LINEAR)
-    progress = CMAN_NextLinearValues(t);
-  else if (cman.path_mode == CMAN_PATH_MODE_RADIAL)
-    progress = CMAN_NextRadialValues(t);
-  else if (cman.path_mode == CMAN_PATH_MODE_BEZIER)
-    progress = CMAN_NextBezierValues(t);
+  float progress = CMAN_NextValues(t);
 
   // Update the camera values as long as the camera path is not completed
   if (progress < 1.f)
@@ -414,6 +515,8 @@ void CMAN_Init()
         cman.warp_player = (int)param_value;
       else if (!strcmp(param_name, "hide_player"))
         cman.hide_player = (int)param_value;
+      else if (!strcmp(param_name, "ga_buffer_len"))
+        cman.ga_buffer_len = (int)param_value;
       else if (!strcmp(param_name, "speed"))
         cman.speed = param_value;
       else if (!strcmp(param_name, "x0"))
