@@ -151,15 +151,11 @@ float CMAN_FixAngleCrossingEast(float angle, float prev_angle)
 // Outputs next values for Linear path mode.
 float CMAN_NextLinearValues(float t, dboolean overshoot)
 {
-  float progress;
+  float progress = 0;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
-  {
     progress = cman.speed * t / CMAN_VectorLength(cman.x1 - cman.x0, cman.y1 - cman.y0);
-  }
   else if (cman.speed_mode == CMAN_SPEED_MODE_TIME)
-  {
-    progress = t / cman.speed;
-  }
+    progress = cman.speed ? t / cman.speed : 0;
 
   if (overshoot || progress < 1.f)
   {
@@ -179,9 +175,7 @@ float CMAN_NextLinearValues(float t, dboolean overshoot)
   }
 
   if (cman.angle_mode == CMAN_ANGLE_MODE_RELATIVE)
-  {
     cman_out.a += CMAN_VectorAngle(cman.x1 - cman.x0, cman.y1 - cman.y0);
-  }
 
   return progress;
 }
@@ -189,15 +183,11 @@ float CMAN_NextLinearValues(float t, dboolean overshoot)
 // Outputs next values for Radial path mode.
 float CMAN_NextRadialValues(float t, dboolean overshoot)
 {
-  float progress;
+  float progress = 0;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
-  {
     progress = cman.speed * t / (float)fabs(cman.ra1 - cman.ra0);
-  }
   else if (cman.speed_mode == CMAN_SPEED_MODE_TIME)
-  {
-    progress = t / cman.speed;
-  }
+    progress = cman.speed ? t / cman.speed : 0;
 
   float ra, r, cx, cy;
   if (overshoot || progress < 1.f)
@@ -226,9 +216,7 @@ float CMAN_NextRadialValues(float t, dboolean overshoot)
   cman_out.y = cy + (float)sin(ra_radian) * r;
 
   if (cman.angle_mode == CMAN_ANGLE_MODE_RELATIVE)
-  {
     cman_out.a += CMAN_VectorAngle(cx - cman_out.x, cy - cman_out.y);
-  }
 
   return progress;
 }
@@ -236,7 +224,7 @@ float CMAN_NextRadialValues(float t, dboolean overshoot)
 // Outputs next values for Bezier path mode.
 float CMAN_NextBezierValues(float t, dboolean overshoot)
 {
-  float progress = t / cman.speed;
+  float progress = cman.speed ? t / cman.speed : 0;
 
   if (overshoot || progress < 1.f)
   {
