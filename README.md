@@ -33,7 +33,45 @@ Playing these profiles in dsda-doom engine offers a few advantages:
 
 ### How to use
 
-TBD
+Run with the following fork-specific command line parameters:
+
+`-cman <file>` loads a camera profile (.cman file), previously exported by the Cameraman Editor
+([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
+
+`-cman_auto_skip` *(optional)* automatically skips to the frame when the camera becomes active 
+(**'delay'** parameter in camera profile). Requires demo playback to work.
+
+`-cman_auto_exit` *(optional)* automatically exits as soon as the camera path is completed.
+
+`-cman_viddump <videofile>` *(optional)* shortcut to activate auto-skip, auto-exit and viddump at the same time.
+Essentially, outputs a video that captures the camera path and nothing else. 
+Requires demo playback by means of `-timedemo <demo>` to work property.
+
+Examples:
+```shell
+# Runs the game with a camera profile
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman mycamera.cman
+
+# Plays a demo alongside a camera profile
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo myrun.lmp -cman mycamera.cman
+
+# Same as above, but skips to the camera playback
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo myrun.lmp -cman mycamera.cman -cman_auto_skip
+
+# Outputs the demo+camera playback to a video clip, immediately exiting after it's done
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo myrun.lmp -cman mycamera.cman -cman_viddump myvideo.mkv
+```
+
+### How different is it from regular dsda-doom?
+
+Not much. This fork strictly adds Cameraman functionality to upstream and doesn't remove or try to "fix" anything else.
+
+For simplicity, pretty much all new code is in [cman.h](prboom2/src/cman.h) and [cman.c](prboom2/src/cman.c).
+Any interactions between this module and the existing codebase are kept to a bare minimum.
+
+Outside of extra Cameraman features, it should be safe to use this port in place of regular dsda-doom
+for normal play, speedrunning etc. But in case you're extra worried, stick to the original dsda port and only
+use this one for Cameraman stuff.
 
 ### Author and contributors
 
