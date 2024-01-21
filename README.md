@@ -45,21 +45,21 @@ Run with the following fork-specific command line parameters:
 
 `-cman_viddump <videofile>` *(optional)* shortcut to activate auto-skip, auto-exit and viddump at the same time.
 Essentially, outputs a video that captures the camera path and nothing else. 
-Requires demo playback by means of `-timedemo <demo>` to work property.
+Requires demo playback by means of *-timedemo* to work property.
 
 Examples:
 ```shell
 # Runs the game with a camera profile
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman mycamera.cman
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
 
 # Plays a demo alongside a camera profile
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo myrun.lmp -cman mycamera.cman
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman
 
 # Same as above, but skips to the camera playback
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo myrun.lmp -cman mycamera.cman -cman_auto_skip
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_auto_skip
 
 # Outputs the demo+camera playback to a video clip, immediately exiting after it's done
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo myrun.lmp -cman mycamera.cman -cman_viddump myvideo.mkv
+dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_viddump vid.mkv
 ```
 
 ### How different is it from regular dsda-doom?
