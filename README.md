@@ -1,67 +1,44 @@
-# dsda-doom v0.27.5
-This is a successor of prboom+ with many new features, including:
-- Heretic, Hexen, MBF21, Doom-in-Hexen, UDMF, and MAPINFO support
-- In-game console and scripting
-- Full controller support
-- Palette-based opengl renderer
-- Debugging features for testing
-- Strict mode for speedrunning
-- Various quality of life improvements
-- Advanced tools for TASing
-- Rewind
+# dsda-doom-cameraman v0.27.5 (WIP)
 
-Download windows releases [here](https://drive.google.com/drive/folders/1KMU1dY0HZrY5h2EyPzxxXuyH8DunAJV_?usp=sharing).
+This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom), 
+which enables playback of Cameraman profiles.
 
-### Patch Notes
-- [v0.27](./patch_notes/v0.27.md)
-- [v0.26](./patch_notes/v0.26.md)
-- [v0.25](./patch_notes/v0.25.md)
+### What is Cameraman?
 
-### Launcher
-There is a dedicated launcher for this port available [here](https://github.com/Pedro-Beirao/dsda-launcher) by PBeGood4.
+**Cameraman** is a tool for making short clips or movies in GZDoom, capturing gameplay and/or scenery.
 
-### Doom-in-Hexen Support
-- [Full details](./docs/doom_in_hexen.md)
+Here is the main project page: [zdoom-cameraman](https://github.com/borogk/zdoom-cameraman).
 
-### UDMF Support
-- [Full details](./docs/udmf.md)
+### Why does this fork exist?
 
-### MAPINFO Support
-- [Full details](./docs/mapinfo.md)
+This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of GZDoom.
 
-### Hexen Support
-- DSDA-Doom includes demo-compatible support for hexen.
-  - Use -iwad HEXEN.WAD (-file HEXDD.WAD for the expansion)
-    - Or drag wads onto the exe
-  - You can force hexen engine behaviour with `-hexen` (shouldn't be necessary)
-- Don't need to supply complevel (hexen is complevel 0 by necessity)
-- Known issues
-  - Setting the "Status Bar and Menu Appearance" option to "not adjusted" will have no effect for hexen (it will default instead to "Doom format")
-  - The "Apply multisampling" automap option is disabled for hexen
-  - Automap colors are not configurable for hexen
-  - Some of the more advanced features are not implemented for hexen yet, and using them may cause crashes or other odd behaviour.
-  - Some menus extend over the hud.
-  - Monster counter doesn't work as expected, due to cluster format (ex hud / levelstat)
-  - Hexen-style skies aren't implemented yet (layering, etc)
-  - The ALTSHADOW thing flag isn't affecting the rendering
-  - Dynamic fade palettes aren't being used
-  - The yellow message variant isn't implemented
+The main Cameraman runs as a mod for GZDoom. Its main component is an editor, that allows to interactively draw
+different paths for camera and to instantly try them out in-engine.
 
-### Heretic Support
-- DSDA-Doom includes demo-compatible support for heretic (all the demos stored on dsda are in sync).
-- Heretic game logic should be set automatically if you use `HERETIC.WAD` as the iwad. If it doesn't work, please use the `-heretic` commandline option. This flips a switch in the engine that determines all the core game data.
-- Don't need to supply complevel (heretic is complevel 0 by necessity)
-- Known issues
-  - Setting the "Status Bar and Menu Appearance" option to "not adjusted" will have no effect for heretic (it will default instead to "Doom format").
-  - The "Apply multisampling" automap option is disabled for heretic.
-  - Automap colors are not configurable for heretic.
-  - Some of the more advanced features are not implemented for heretic yet, and using them may cause crashes or other odd behaviour.
-  - Dehacked support for heretic isn't implemented yet.
-  - Some menus extend over the hud.
+That editor also allows saving **camera profiles** as separate files, to load and re-play them later.
 
-### Other Standards
-- [MBF21 v1.4](https://github.com/kraflab/mbf21)
-- [UMAPINFO v2.2](https://github.com/kraflab/umapinfo)
+Playing these profiles in dsda-doom engine offers a few advantages:
+- **Accurate demo playback.** 
+  You can capture "cinematic" playthrough of almost any existing Doom speedrun,
+  thanks to robust backwards compatibility.
+- **Viddump.** 
+  This feature, inherited from PrBoom+, allows capturing demo playback into video files 
+  without relying on real time direct screen capture (OBS or similar). It means the output framerate will always
+  be consistent, even if FPS was sluggish during the demo recording. And, in case your computer has spare rendering
+  power, the output video is generated quicker than in real time.
+- **More faithful visuals.**
+  Both software and OpenGL rendering modes look much closer to the original Doom for MS-DOS.
+  Original lighting in particular is challenging to reproduce in GZDoom, as well as some rendering artifacts.
 
-### Credits
-- The DSDA-Doom icon was designed by Mal (129thVisplane). Thanks!
+### How to use
+
+TBD
+
+### Author and contributors
+
+Originally created by **borogk** in 2024.
+
+Based on **[dsda-doom](https://github.com/kraflab/dsda-doom)**, see its contributors on the respective repository page.
+
+Original README is copied over to [README_DSDA.md](README_DSDA.md) out of courtesy.
