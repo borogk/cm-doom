@@ -426,7 +426,39 @@ void CMAN_InitDefaults()
   cman.overshoot = false;
   cman.warp_player = false;
   cman.hide_player = false;
+  cman.ga_buffer_len = 128;
   cman.speed = 1.f;
+}
+
+// Normalizes enum value. Values out of range default to min.
+int CMAN_EnumInRange(int value, int min, int max)
+{
+  if (value < min || value > max)
+    return min;
+  else
+    return value;
+}
+
+// Normalizes int value within range.
+int CMAN_IntInRange(int value, int min, int max)
+{
+  if (value < min)
+    return min;
+  else if (value > max)
+    return max;
+  else
+    return value;
+}
+
+// Normalizes float value within range.
+float CMAN_FloatInRange(float value, float min, float max)
+{
+  if (value < min)
+    return min;
+  else if (value > max)
+    return max;
+  else
+    return value;
 }
 
 // Meant to be called only once during the game startup.
@@ -490,13 +522,13 @@ void CMAN_Init()
       lprintf(LO_DEBUG, " Cameraman param: %s = %f\n", param_name, param_value);
 
       if (!strcmp(param_name, "path_mode"))
-        cman.path_mode = (int)param_value;
+        cman.path_mode = CMAN_EnumInRange((int)param_value, CMAN_PATH_MODE_LINEAR, CMAN_PATH_MODE_BEZIER);
       else if (!strcmp(param_name, "speed_mode"))
-        cman.speed_mode = (int)param_value;
+        cman.speed_mode = CMAN_EnumInRange((int)param_value, CMAN_SPEED_MODE_DISTANCE, CMAN_SPEED_MODE_TIME);
       else if (!strcmp(param_name, "angle_mode"))
-        cman.angle_mode = (int)param_value;
+        cman.angle_mode = CMAN_EnumInRange((int)param_value, CMAN_ANGLE_MODE_RELATIVE, CMAN_ANGLE_MODE_ABSOLUTE);
       else if (!strcmp(param_name, "delay"))
-        cman.delay = (int)param_value;
+        cman.delay = CMAN_IntInRange((int)param_value, 0, INT_MAX);
       else if (!strcmp(param_name, "overshoot"))
         cman.overshoot = (int)param_value;
       else if (!strcmp(param_name, "warp_player"))
@@ -504,9 +536,9 @@ void CMAN_Init()
       else if (!strcmp(param_name, "hide_player"))
         cman.hide_player = (int)param_value;
       else if (!strcmp(param_name, "ga_buffer_len"))
-        cman.ga_buffer_len = (int)param_value;
+        cman.ga_buffer_len = CMAN_IntInRange((int)param_value, 1, 1024);
       else if (!strcmp(param_name, "speed"))
-        cman.speed = param_value;
+        cman.speed = param_value < 0 ? 0 : param_value;
       else if (!strcmp(param_name, "x0"))
         cman.x0 = param_value;
       else if (!strcmp(param_name, "y0"))
@@ -530,9 +562,9 @@ void CMAN_Init()
       else if (!strcmp(param_name, "a1"))
         cman.a1 = param_value;
       else if (!strcmp(param_name, "p0"))
-        cman.p0 = param_value;
+        cman.p0 = CMAN_FloatInRange(param_value, -0.25f, 0.25f);
       else if (!strcmp(param_name, "p1"))
-        cman.p1 = param_value;
+        cman.p1 = CMAN_FloatInRange(param_value, -0.25f, 0.25f);
       else if (!strcmp(param_name, "ra0"))
         cman.ra0 = param_value;
       else if (!strcmp(param_name, "ra1"))
