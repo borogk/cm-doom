@@ -369,7 +369,7 @@ void CMAN_Init()
       if (!line)
         break;
 
-      if (sscanf(line, "%s %c %f\n", param_name, &param_separator, &param_value) != 3 || param_separator != '=')
+      if (sscanf(line, "%63s %c %f\n", param_name, &param_separator, &param_value) != 3 || param_separator != '=')
         continue;
 
       lprintf(LO_DEBUG, " Cameraman param: %s = %f\n", param_name, param_value);
