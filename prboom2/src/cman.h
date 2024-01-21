@@ -21,3 +21,4 @@
 
 int CMAN_Ticker();
 void CMAN_Init();
+int CMAN_SkipTics();

@@ -33,6 +33,8 @@
 
 #include "skip.h"
 
+#include "cman.h"
+
 static dboolean skip_mode;
 
 static int demo_skiptics;
@@ -221,6 +223,10 @@ void dsda_HandleSkip(void) {
   arg = dsda_Arg(dsda_arg_skiptic);
   if (arg->found)
     demo_skiptics = arg->value.v_int;
+
+  int cman_skiptics = CMAN_SkipTics();
+  if (cman_skiptics >= 0)
+    demo_skiptics = cman_skiptics;
 
   if (dsda_PlaybackName() && (warpmap != -1 || demo_skiptics)) {
     skip_until_map = warpmap;

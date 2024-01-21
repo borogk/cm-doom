@@ -79,6 +79,10 @@ struct
   float p;
 } cman_out;
 
+// Extra behavior settings
+dboolean cman_auto_skip = false;
+dboolean cman_auto_exit = false;
+
 // Converts ZDoom-style angle (between 0.0 and 1.0) to BAM.
 angle_t CMAN_FromZDoomAngle(float a)
 {
@@ -105,7 +109,7 @@ float CMAN_VectorAngle(float x, float y)
 }
 
 // Outputs next values for Linear path mode.
-void CMAN_NextLinearValues(float t)
+float CMAN_NextLinearValues(float t)
 {
   float progress;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
@@ -138,10 +142,12 @@ void CMAN_NextLinearValues(float t)
   {
     cman_out.a += CMAN_VectorAngle(cman.x1 - cman.x0, cman.y1 - cman.y0);
   }
+
+  return progress;
 }
 
 // Outputs next values for Radial path mode.
-void CMAN_NextRadialValues(float t)
+float CMAN_NextRadialValues(float t)
 {
   float progress;
   if (cman.speed_mode == CMAN_SPEED_MODE_DISTANCE)
@@ -183,10 +189,12 @@ void CMAN_NextRadialValues(float t)
   {
     cman_out.a += CMAN_VectorAngle(cx - cman_out.x, cy - cman_out.y);
   }
+
+  return progress;
 }
 
 // Outputs next values for Bezier path mode.
-void CMAN_NextBezierValues(float t)
+float CMAN_NextBezierValues(float t)
 {
   float progress = t / cman.speed;
 
@@ -225,6 +233,8 @@ void CMAN_NextBezierValues(float t)
     float tangentAngle = CMAN_VectorAngle(cman_out.x - prevx, cman_out.y - prevy);
     cman_out.a += tangentAngle;
   }
+
+  return progress;
 }
 
 // Meant to be called every gametic from P_WalkTicker.
@@ -241,21 +251,31 @@ int CMAN_Ticker()
 
   // Calculate next camera values depending on the path mode
   float t = (float)(leveltime - cman.delay);
+  float progress;
   if (cman.path_mode == CMAN_PATH_MODE_LINEAR)
-    CMAN_NextLinearValues(t);
+    progress = CMAN_NextLinearValues(t);
   else if (cman.path_mode == CMAN_PATH_MODE_RADIAL)
-    CMAN_NextRadialValues(t);
+    progress = CMAN_NextRadialValues(t);
   else if (cman.path_mode == CMAN_PATH_MODE_BEZIER)
-    CMAN_NextBezierValues(t);
+    progress = CMAN_NextBezierValues(t);
 
-  // Set the camera values
-  // type=2 means 'freecam' mode (the kind controlled separately from the player model during demo playback)
-  walkcamera.type = 2;
-  walkcamera.x = dsda_FloatToFixed(cman_out.x);
-  walkcamera.y = dsda_FloatToFixed(cman_out.y);
-  walkcamera.z = dsda_FloatToFixed(cman_out.z);
-  walkcamera.angle = CMAN_FromZDoomAngle(cman_out.a);
-  walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
+  // Update the camera values as long as the camera path is not completed
+  if (progress < 1.f)
+  {
+    // type=2 means 'freecam' mode (the kind controlled separately from the player model during demo playback)
+    walkcamera.type = 2;
+    walkcamera.x = dsda_FloatToFixed(cman_out.x);
+    walkcamera.y = dsda_FloatToFixed(cman_out.y);
+    walkcamera.z = dsda_FloatToFixed(cman_out.z);
+    walkcamera.angle = CMAN_FromZDoomAngle(cman_out.a);
+    walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
+  }
+  else
+  {
+    // Auto-exit after the camera is done
+    if (cman_auto_exit)
+      I_SafeExit(0);
+  }
 
   return true;
 }
@@ -280,9 +300,26 @@ void CMAN_Init()
   cman.delay = -1;
 
   // Look for -cman command line argument
-  dsda_arg_t *arg = dsda_Arg(dsda_arg_cman);
-  if (!arg->found)
+  dsda_arg_t *cman_arg = dsda_Arg(dsda_arg_cman);
+  if (!cman_arg->found)
     return;
+
+  // Look for -cman_auto_skip command line argument
+  if (dsda_Flag(dsda_arg_cman_auto_skip))
+    cman_auto_skip = true;
+
+  // Look for -cman_auto_exit command line argument
+  if (dsda_Flag(dsda_arg_cman_auto_exit))
+    cman_auto_exit = true;
+
+  // Look for -cman_viddump command line argument
+  dsda_arg_t *cman_viddump_arg = dsda_Arg(dsda_arg_cman_viddump);
+  if (cman_viddump_arg->found)
+  {
+    cman_auto_skip = true;
+    cman_auto_exit = true;
+    dsda_UpdateStringArg(dsda_arg_viddump, cman_viddump_arg->value.v_string);
+  }
 
   CMAN_InitDefaults();
 
@@ -292,7 +329,7 @@ void CMAN_Init()
   char param_separator;
   float param_value;
 
-  cman_file = Z_Strdup(arg->value.v_string);
+  cman_file = Z_Strdup(cman_arg->value.v_string);
   cman_file = I_RequireFile(cman_file, ".cman");
   lprintf(LO_INFO, "Loading Cameraman profile: %s\n", cman_file);
 
@@ -300,6 +337,8 @@ void CMAN_Init()
   // Each line is expected to be '<param> = <value>'
   // Unrecognized lines and param names are ignored
   FILE* f = M_OpenFile(cman_file, "r");
+  Z_Free(cman_file);
+
   if (f)
   {
     while (!feof(f))
@@ -378,4 +417,10 @@ void CMAN_Init()
   }
 
   Z_Free(line);
+}
+
+// Meant to be called when setting up skiptics. Returns amount of tics to skip or -1 if no skip is needed.
+int CMAN_SkipTics()
+{
+  return cman_auto_skip ? cman.delay : -1;
 }

@@ -693,6 +693,21 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "loads a Cameraman profile",
     arg_string,
   },
+  [dsda_arg_cman_auto_skip] = {
+    "-cman_auto_skip", NULL, NULL,
+    "automatically skips all the frames before Cameraman 'delay' setting",
+    arg_null,
+  },
+  [dsda_arg_cman_auto_exit] = {
+    "-cman_auto_exit", NULL, NULL,
+    "automatically exits as soon as Cameraman profile is done",
+    arg_null,
+  },
+  [dsda_arg_cman_viddump] = {
+    "-cman_viddump", NULL, NULL,
+    "works the same as -viddump, but only captures the portion when Cameraman is active",
+    arg_string,
+  },
 };
 
 static dsda_arg_t arg_value[dsda_arg_count];
