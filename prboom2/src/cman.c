@@ -20,9 +20,11 @@
 #include "doomstat.h"
 #include "i_system.h"
 #include "m_file.h"
+#include "i_main.h"
 #include "r_main.h"
 #include "lprintf.h"
 #include "dsda/args.h"
+#include "dsda/skip.h"
 #include "dsda/utility.h"
 
 #define CMAN_PATH_MODE_LINEAR       0
@@ -241,16 +243,22 @@ float CMAN_NextBezierValues(float t)
 // Returns true when Cameraman is engaged, this should tell P_WalkTicker back the camera control is overridden.
 int CMAN_Ticker()
 {
-  // Cameraman is not loaded at all
+  // Cameraman is not loaded at all, quit without touching the camera or anything else
   if (cman.delay < 0)
     return false;
 
-  // Cameraman is loaded, but the starting tic hasn't come yet
-  if (leveltime < cman.delay)
+  // Reset the camera at every level start
+  if (gametic - levelstarttic == 1)
+    walkcamera.type = 0;
+
+  // Cameraman time must be exactly 0 after the current level has started and 'delay' tics have passed
+  // Don't start earlier than that
+  int cman_time = gametic - levelstarttic - cman.delay - 1;
+  if (cman_time < 0)
     return false;
 
   // Calculate next camera values depending on the path mode
-  float t = (float)(leveltime - cman.delay);
+  float t = (float)cman_time;
   float progress;
   if (cman.path_mode == CMAN_PATH_MODE_LINEAR)
     progress = CMAN_NextLinearValues(t);
@@ -272,8 +280,9 @@ int CMAN_Ticker()
   }
   else
   {
-    // Auto-exit after the camera is done
-    if (cman_auto_exit)
+    // Auto-exit after the camera is done, but not while skipping frames
+    // The skip mode check prevents premature exits, e.g. when skipping a level in multi-level demos
+    if (cman_auto_exit && !dsda_SkipMode())
       I_SafeExit(0);
   }
 
