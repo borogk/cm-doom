@@ -23,6 +23,7 @@
 #include "i_main.h"
 #include "r_main.h"
 #include "r_fps.h"
+#include "p_map.h"
 #include "lprintf.h"
 #include "dsda/args.h"
 #include "dsda/skip.h"
@@ -288,6 +289,31 @@ int CMAN_Ticker()
     walkcamera.z = dsda_FloatToFixed(cman_out.z);
     walkcamera.angle = CMAN_FromZDoomAngle(cman_out.a);
     walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
+
+    // Player mobj to manipulate if needed
+    mobj_t* player = players[displayplayer].mo;
+
+    // Warp the player (not supported during demo playback)
+    if (cman.warp_player && !demoplayback)
+    {
+      P_MapStart();
+
+      if (P_TeleportMove(player, walkcamera.x, walkcamera.y, false))
+      {
+        player->z = walkcamera.z;
+        player->angle = walkcamera.angle;
+        player->pitch = walkcamera.pitch;
+        player->momx = 0;
+        player->momy = 0;
+        player->momz = 0;
+      }
+
+      P_MapEnd();
+    }
+
+    // Hide the player
+    if (cman.hide_player)
+      player->flags2 |= MF2_DONTDRAW;
   }
   else
   {
