@@ -114,6 +114,8 @@
 #include "dsda/split_tracker.h"
 #include "dsda/utility.h"
 
+#include "cman.h"
+
 struct
 {
     int type;   // mobjtype_t
@@ -4021,6 +4023,9 @@ void doom_printf(const char *s, ...)
 //e6y
 void P_WalkTicker()
 {
+  if (CMAN_Ticker())
+    return;
+
   int strafe;
   int speed;
   int tspeed;

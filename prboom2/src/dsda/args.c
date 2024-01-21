@@ -688,6 +688,11 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "turns on mapinfo parsing in doom (temporary arg for testing)",
     arg_null,
   },
+  [dsda_arg_cman] = {
+    "-cman", NULL, NULL,
+    "loads a Cameraman profile",
+    arg_string,
+  },
 };
 
 static dsda_arg_t arg_value[dsda_arg_count];

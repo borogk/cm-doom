@@ -120,6 +120,8 @@
 
 #include "i_glob.h"
 
+#include "cman.h"
+
 static void D_PageDrawer(void);
 
 // jff 1/24/98 add new versions of these variables to remember command line
@@ -1182,6 +1184,7 @@ static void DoLooseFiles(void)
     { ".lmp", dsda_arg_playdemo },
     { ".deh", dsda_arg_deh },
     { ".bex", dsda_arg_deh },
+    { ".cman", dsda_arg_cman },
     // assume wad if no extension or length of the extention is not equal to 3
     // must be last entry
     { "", dsda_arg_file },
@@ -2011,6 +2014,9 @@ static void D_DoomMainSetup(void)
 
   // do not try to interpolate during timedemo
   M_ChangeUncappedFrameRate();
+
+  lprintf(LO_DEBUG, "CMAN_Init: Initializing Cameraman.\n");
+  CMAN_Init();
 
   lprintf(LO_DEBUG, "\n"); // Separator after setup
 }

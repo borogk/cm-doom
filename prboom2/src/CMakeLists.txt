@@ -420,6 +420,8 @@ set(COMMON_SRC
     z_bmalloc.h
     z_zone.c
     z_zone.h
+    cman.c
+    cman.h
 )
 
 set(NET_CLIENT_SRC
