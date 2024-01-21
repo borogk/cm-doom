@@ -22,6 +22,7 @@
 #include "m_file.h"
 #include "i_main.h"
 #include "r_main.h"
+#include "r_fps.h"
 #include "lprintf.h"
 #include "dsda/args.h"
 #include "dsda/skip.h"
@@ -84,6 +85,9 @@ struct
 // Extra behavior settings
 dboolean cman_auto_skip = false;
 dboolean cman_auto_exit = false;
+
+// Track active state to detect changes
+dboolean cman_was_active = false;
 
 // Converts ZDoom-style angle (between 0.0 and 1.0) to BAM.
 angle_t CMAN_FromZDoomAngle(float a)
@@ -248,12 +252,15 @@ int CMAN_Ticker()
     return false;
 
   // Reset the camera at every level start
-  if (gametic - levelstarttic == 1)
+  if (gametic == levelstarttic)
+  {
     walkcamera.type = 0;
+    cman_was_active = false;
+  }
 
   // Cameraman time must be exactly 0 after the current level has started and 'delay' tics have passed
   // Don't start earlier than that
-  int cman_time = gametic - levelstarttic - cman.delay - 1;
+  int cman_time = leveltime - cman.delay - 1;
   if (cman_time < 0)
     return false;
 
@@ -270,6 +277,10 @@ int CMAN_Ticker()
   // Update the camera values as long as the camera path is not completed
   if (progress < 1.f)
   {
+    // Disable interpolation for one frame and abruptly jump to the camera starting position
+    if (!cman_was_active)
+      R_ResetViewInterpolation();
+
     // type=2 means 'freecam' mode (the kind controlled separately from the player model during demo playback)
     walkcamera.type = 2;
     walkcamera.x = dsda_FloatToFixed(cman_out.x);
@@ -286,6 +297,7 @@ int CMAN_Ticker()
       I_SafeExit(0);
   }
 
+  cman_was_active = true;
   return true;
 }
 
