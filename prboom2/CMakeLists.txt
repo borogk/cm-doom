@@ -34,7 +34,7 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(X_VCPKG_APPLOCAL_DEPS_INSTALL TRUE)
 
-project("dsda-doom" VERSION 0.27.5)
+project("cm-doom" VERSION 1.0.0)
 
 # Set a default build type if none was specified
 set(default_build_type "RelWithDebInfo")
@@ -81,6 +81,9 @@ set(PACKAGE_TARNAME "dsda-doom")
 set(WAD_DATA "dsda-doom.wad")
 set(PACKAGE_VERSION "${PROJECT_VERSION}")
 set(PACKAGE_STRING "${PROJECT_NAME} ${PROJECT_VERSION}")
+
+set(UPSTREAM_PACKAGE_STRING "dsda-doom 0.27.5")
+set(PACKAGE_STRING_FULL "${PACKAGE_STRING} (based on ${UPSTREAM_PACKAGE_STRING})")
 
 include(CheckSymbolExists)
 

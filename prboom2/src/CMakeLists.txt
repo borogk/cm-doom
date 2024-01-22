@@ -595,8 +595,8 @@ function(AddGameExecutable TARGET SOURCES)
             LINK_FLAGS "/MANIFEST:NO /SUBSYSTEM:CONSOLE"
         )
         add_custom_command(TARGET ${TARGET} POST_BUILD
-            COMMAND "mt.exe" -manifest \"${CMAKE_CURRENT_SOURCE_DIR}\\..\\ICONS\\dsda-doom.exe.manifest\" -outputresource:\"$<TARGET_FILE:dsda-doom>\"\;\#1
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${WAD_DATA_PATH} $<TARGET_FILE_DIR:dsda-doom>
+            COMMAND "mt.exe" -manifest \"${CMAKE_CURRENT_SOURCE_DIR}\\..\\ICONS\\dsda-doom.exe.manifest\" -outputresource:\"$<TARGET_FILE:cm-doom>\"\;\#1
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different ${WAD_DATA_PATH} $<TARGET_FILE_DIR:cm-doom>
         )
     elseif(WIN32)
         set_target_properties(${TARGET} PROPERTIES
@@ -630,4 +630,4 @@ function(AddGameExecutable TARGET SOURCES)
     )
 endfunction()
 
-AddGameExecutable(dsda-doom "${DSDA_SOURCES}")
+AddGameExecutable(cm-doom "${DSDA_SOURCES}")
