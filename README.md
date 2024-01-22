@@ -1,7 +1,9 @@
-# dsda-doom-cameraman v0.27.5 (WIP)
+# cm-doom
 
 This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom), 
 which enables playback of Cameraman profiles.
+
+Download the latest version: *(coming soon)*
 
 ### What is Cameraman?
 
@@ -13,7 +15,7 @@ Here is the main project page: [zdoom-cameraman](https://github.com/borogk/zdoom
 
 This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of GZDoom.
 
-The main Cameraman runs as a mod for GZDoom. Its main component is an editor, that allows to interactively draw
+The main Cameraman is a mod for GZDoom. Its main component is an editor, that allows to interactively draw
 different paths for camera and to instantly try them out in-engine.
 
 That editor also allows saving **camera profiles** as separate files, to load and re-play them later.
@@ -35,7 +37,7 @@ Playing these profiles in dsda-doom engine offers a few advantages:
 
 Run with the following fork-specific command line parameters:
 
-`-cman <file>` loads a camera profile (.cman file), previously exported by the Cameraman Editor
+`-cman <file>` *(optional)* loads a camera profile (.cman file), previously exported by the Cameraman Editor
 ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
 
 `-cman_auto_skip` *(optional)* automatically skips to the frame when the camera becomes active 
@@ -45,38 +47,47 @@ Run with the following fork-specific command line parameters:
 
 `-cman_viddump <videofile>` *(optional)* shortcut to activate auto-skip, auto-exit and viddump at the same time.
 Essentially, outputs a video that captures the camera path and nothing else. 
-Requires demo playback by means of *-timedemo* to work property.
+Requires demo playback by means of *-timedemo* to work properly.
 
 Examples:
 ```shell
 # Runs the game with a camera profile
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
 
 # Plays a demo alongside a camera profile
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman
 
 # Same as above, but skips to the camera playback
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_auto_skip
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_auto_skip
 
 # Outputs the demo+camera playback to a video clip, immediately exiting after it's done
-dsda-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_viddump vid.mkv
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_viddump vid.mkv
 ```
 
-### How different is it from regular dsda-doom?
+### How different is this from regular dsda-doom?
 
-Not much. This fork strictly adds Cameraman functionality to upstream and doesn't remove or try to "fix" anything else.
+Almost identical. This fork strictly adds a bit of functionality to upstream without removing or "fixing" anything.
+
+The project is set up to build `cm-doom` executable instead of `dsda-doom`, just so there is no clash
+should you decide to have both ports installed. 
 
 For simplicity, pretty much all new code is in [cman.h](prboom2/src/cman.h) and [cman.c](prboom2/src/cman.c).
 Any interactions between this module and the existing codebase are kept to a bare minimum.
 
 Outside of extra Cameraman features, it should be safe to use this port in place of regular dsda-doom
-for normal play, speedrunning etc. But in case you're extra worried, stick to the original dsda port and only
+for normal play, speedrunning etc. But in case you're extra worried, stick to the original DSDA port and only
 use this one for Cameraman stuff.
+
+### Future support strategy
+
+The plan is to update cm-doom when:
+- New dsda-doom versions are released, to keep it up-to-date with upstream
+- Main Cameraman project sees significant additions, this project shall be updated to support them
 
 ### Author and contributors
 
 Originally created by **borogk** in 2024.
 
-Based on **[dsda-doom](https://github.com/kraflab/dsda-doom)**, see its contributors on the respective repository page.
+Based on [dsda-doom](https://github.com/kraflab/dsda-doom), see its contributors on the respective repository page.
 
 Original README is copied over to [README_DSDA.md](README_DSDA.md) out of courtesy.

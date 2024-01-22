@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "cm-doom",
   "version": "1.0.0",
-  "homepage": "https://github.com/borogk/dsda-doom-cameraman",
+  "homepage": "https://github.com/borogk/cm-doom",
   "license": "GPL-2.0-only",
   "dependencies": [
     {
