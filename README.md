@@ -3,13 +3,12 @@
 This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom), 
 which enables playback of Cameraman profiles.
 
-Download the latest version: *(coming soon)*
+Downloads can be found on the [releases page](https://github.com/borogk/cm-doom/releases).
 
 ### What is Cameraman?
 
 **Cameraman** is a tool for making short clips or movies in GZDoom, capturing gameplay and/or scenery.
-
-Here is the main project page: [zdoom-cameraman](https://github.com/borogk/zdoom-cameraman).
+Here is its page: [zdoom-cameraman](https://github.com/borogk/zdoom-cameraman).
 
 ### Why does this fork exist?
 
@@ -80,9 +79,8 @@ use this one for Cameraman stuff.
 
 ### Future support strategy
 
-The plan is to update cm-doom when:
-- New dsda-doom versions are released, to keep it up-to-date with upstream
-- Main Cameraman project sees significant additions, this project shall be updated to support them
+Current plan is to focus on **only developing things related to Cameraman.**
+All other functionality would be regularly pulled from upstream dsda-doom releases as is.
 
 ### Author and contributors
 
