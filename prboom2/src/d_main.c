@@ -1755,6 +1755,10 @@ static void D_DoomMainSetup(void)
 
   D_AddFile(port_wad_file, source_auto_load);
 
+  // Must be before demo playback, skip and viddump parameters are parsed
+  lprintf(LO_DEBUG, "CMAN_Init: Initializing Cameraman.\n");
+  CMAN_Init();
+
   HandlePlayback(); // must come before autoload: may detect iwad in footer
 
   EvaluateDoomVerStr(); // must come after HandlePlayback (may change iwad)
@@ -1955,10 +1959,6 @@ static void D_DoomMainSetup(void)
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "\nP_Init: Init Playloop state.\n");
   P_Init();
-
-  // Must be before skip and viddump stuff is initialized
-  lprintf(LO_DEBUG, "CMAN_Init: Initializing Cameraman.\n");
-  CMAN_Init();
 
   // Must be after P_Init
   HandleWarp();

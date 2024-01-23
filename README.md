@@ -38,6 +38,7 @@ Run with the following fork-specific command line parameters:
 
 `-cman <file>` *(optional)* loads a camera profile (.cman file), previously exported by the Cameraman Editor
 ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
+If not specified, Cameraman functionality is disabled and all parameters described below are ignored.
 
 `-cman_auto_skip` *(optional)* automatically skips to the frame when the camera becomes active 
 (**'delay'** parameter in camera profile). Requires demo playback to work.
@@ -46,7 +47,7 @@ Run with the following fork-specific command line parameters:
 
 `-cman_viddump <videofile>` *(optional)* shortcut to activate auto-skip, auto-exit and viddump at the same time.
 Essentially, outputs a video that captures the camera path and nothing else. 
-Requires demo playback by means of *-timedemo* to work properly.
+Requires demo playback to work.
 
 Examples:
 ```shell

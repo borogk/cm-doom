@@ -461,6 +461,36 @@ float CMAN_FloatInRange(float value, float min, float max)
     return value;
 }
 
+// Reduces user error by validating and auto-correcting demo playback options when -cman_viddump argument is used.
+void CMAN_CorrectPlaybackOptionsForViddump()
+{
+  // All possible ways to configure demo playback
+  dsda_arg_t *playdemo_arg = dsda_Arg(dsda_arg_playdemo);
+  dsda_arg_t *fastdemo_arg = dsda_Arg(dsda_arg_fastdemo);
+  dsda_arg_t *timedemo_arg = dsda_Arg(dsda_arg_timedemo);
+
+  // Careful with the precedence order here: -playdemo, -fastdemo, -timedemo
+  const char* demoname = NULL;
+  if (playdemo_arg->found)
+    demoname = playdemo_arg->value.v_string;
+  else if (fastdemo_arg->found)
+    demoname = fastdemo_arg->value.v_string;
+  else if (timedemo_arg->found)
+    demoname = timedemo_arg->value.v_string;
+
+  if (demoname)
+  {
+    // Always use -timedemo, only this playback mode outputs frame-perfect videos.
+    dsda_UpdateStringArg(dsda_arg_timedemo, demoname);
+    dsda_UpdateFlag(dsda_arg_playdemo, false);
+    dsda_UpdateFlag(dsda_arg_fastdemo, false);
+  }
+  else
+  {
+    I_Error("You must specify a demo file to play back when using -cman_viddump");
+  }
+}
+
 // Meant to be called only once during the game startup.
 void CMAN_Init()
 {
@@ -487,6 +517,7 @@ void CMAN_Init()
     cman_auto_skip = true;
     cman_auto_exit = true;
     dsda_UpdateStringArg(dsda_arg_viddump, cman_viddump_arg->value.v_string);
+    CMAN_CorrectPlaybackOptionsForViddump();
   }
 
   CMAN_InitDefaults();
