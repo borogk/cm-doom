@@ -34,20 +34,19 @@ Playing these profiles in dsda-doom engine offers a few advantages:
 
 ### How to use
 
-Run with the following fork-specific command line parameters:
+Run with the following fork-specific command line parameters (all are optional):
 
-`-cman <file>` *(optional)* loads a camera profile (.cman file), previously exported by the Cameraman Editor
+`-cman <file>` loads a camera profile (.cman file), previously exported by the Cameraman Editor
 ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
 If not specified, Cameraman functionality is disabled and all parameters described below are ignored.
 
-`-cman_auto_skip` *(optional)* automatically skips to the frame when the camera becomes active 
-(**'delay'** parameter in camera profile). Requires demo playback to work.
+`-cman_auto_skip` automatically skips to the frame when the camera becomes active 
+(**'delay'** parameter in camera profile).
 
-`-cman_auto_exit` *(optional)* automatically exits as soon as the camera path is completed.
+`-cman_auto_exit` automatically exits as soon as the camera path is completed.
 
-`-cman_viddump <videofile>` *(optional)* shortcut to activate auto-skip, auto-exit and viddump at the same time.
-Essentially, outputs a video that captures the camera path and nothing else. 
-Requires demo playback to work.
+`-cman_viddump <videofile>` shortcut to activate auto-skip, auto-exit and viddump at the same time.
+Essentially, outputs a video that captures the camera path and nothing else.
 
 Examples:
 ```shell

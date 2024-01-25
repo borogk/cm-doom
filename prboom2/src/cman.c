@@ -339,6 +339,21 @@ float CMAN_NextValues(float t)
   return progress;
 }
 
+// Initializes Cameraman related stuff on level start (only called if Cameraman is loaded).
+void CMAN_LevelStart()
+{
+  // Reset active flag
+  cman_was_active = false;
+
+  // Reset the camera
+  walkcamera.type = 0;
+
+  // Implementation of auto-skip for when a demo is not playing
+  int cman_skiptics = CMAN_SkipTics();
+  if (cman_skiptics >= 0 && !demoplayback)
+    dsda_SkipToLogicTic(true_logictic + cman_skiptics);
+}
+
 // Meant to be called every gametic from P_WalkTicker.
 // Returns true when Cameraman is engaged, this should tell P_WalkTicker back the camera control is overridden.
 int CMAN_Ticker()
@@ -347,12 +362,9 @@ int CMAN_Ticker()
   if (cman.delay < 0)
     return false;
 
-  // Reset the camera at every level start
+  // Detect the level start
   if (gametic == levelstarttic)
-  {
-    walkcamera.type = 0;
-    cman_was_active = false;
-  }
+    CMAN_LevelStart();
 
   // Cameraman time must be exactly 0 after the current level has started and 'delay' tics have passed
   // Don't start earlier than that
@@ -487,7 +499,8 @@ void CMAN_CorrectPlaybackOptionsForViddump()
   }
   else
   {
-    I_Error("You must specify a demo file to play back when using -cman_viddump");
+    // If no demo is specified, this flag still makes sure every video frame is properly captured
+    singletics = true;
   }
 }
 
