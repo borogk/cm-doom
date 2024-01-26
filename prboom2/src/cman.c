@@ -350,7 +350,7 @@ void CMAN_LevelStart()
 
   // Implementation of auto-skip for when a demo is not playing
   int cman_skiptics = CMAN_SkipTics();
-  if (cman_skiptics >= 0 && !demoplayback)
+  if (cman_skiptics > 0 && !demoplayback)
     dsda_SkipToLogicTic(true_logictic + cman_skiptics);
 }
 
