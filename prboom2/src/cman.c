@@ -87,6 +87,7 @@ struct
 // Extra behavior settings
 dboolean cman_auto_skip = false;
 dboolean cman_auto_exit = false;
+dboolean cman_no_extra_light = false;
 
 // Track active state to detect changes
 dboolean cman_was_active = false;
@@ -392,21 +393,21 @@ int CMAN_Ticker()
     walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
 
     // Player mobj to manipulate if needed
-    mobj_t* player = players[displayplayer].mo;
+    player_t* player = &players[displayplayer];
 
     // Warp the player (not supported during demo playback)
     if (cman.warp_player && !demoplayback)
     {
       P_MapStart();
 
-      if (P_TeleportMove(player, walkcamera.x, walkcamera.y, false))
+      if (P_TeleportMove(player->mo, walkcamera.x, walkcamera.y, false))
       {
-        player->z = walkcamera.z;
-        player->angle = walkcamera.angle;
-        player->pitch = walkcamera.pitch;
-        player->momx = 0;
-        player->momy = 0;
-        player->momz = 0;
+        player->mo->z = walkcamera.z;
+        player->mo->angle = walkcamera.angle;
+        player->mo->pitch = walkcamera.pitch;
+        player->mo->momx = 0;
+        player->mo->momy = 0;
+        player->mo->momz = 0;
       }
 
       P_MapEnd();
@@ -414,7 +415,11 @@ int CMAN_Ticker()
 
     // Hide the player
     if (cman.hide_player)
-      player->flags2 |= MF2_DONTDRAW;
+      player->mo->flags2 |= MF2_DONTDRAW;
+
+    // Disable extra light
+    if (cman_no_extra_light)
+      player->extralight = 0;
   }
   else
   {
@@ -522,6 +527,10 @@ void CMAN_Init()
   // Look for -cman_auto_exit command line argument
   if (dsda_Flag(dsda_arg_cman_auto_exit))
     cman_auto_exit = true;
+
+  // Look for -cman_no_extra_light command line argument
+  if (dsda_Flag(dsda_arg_cman_no_extra_light))
+    cman_no_extra_light = true;
 
   // Look for -cman_viddump command line argument
   dsda_arg_t *cman_viddump_arg = dsda_Arg(dsda_arg_cman_viddump);

@@ -703,6 +703,11 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "automatically exits as soon as Cameraman profile is done",
     arg_null,
   },
+  [dsda_arg_cman_no_extra_light] = {
+    "-cman_no_extra_light", NULL, NULL,
+    "disables extra light, e.g. from gun flashes",
+    arg_null,
+  },
   [dsda_arg_cman_viddump] = {
     "-cman_viddump", NULL, NULL,
     "works the same as -viddump, but only captures the portion when Cameraman is active",
