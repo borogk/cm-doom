@@ -693,25 +693,20 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "loads a Cameraman profile",
     arg_string,
   },
-  [dsda_arg_cman_auto_skip] = {
-    "-cman_auto_skip", NULL, NULL,
-    "automatically skips all the frames before Cameraman 'delay' setting",
+  [dsda_arg_cman_skip] = {
+    "-cman_skip", NULL, NULL,
+    "skips all frames before Cameraman becomes active",
     arg_null,
   },
-  [dsda_arg_cman_auto_exit] = {
-    "-cman_auto_exit", NULL, NULL,
-    "automatically exits as soon as Cameraman profile is done",
+  [dsda_arg_cman_exit] = {
+    "-cman_exit", NULL, NULL,
+    "automatically exits as soon as Cameraman path is done",
     arg_null,
   },
-  [dsda_arg_cman_no_extra_light] = {
-    "-cman_no_extra_light", NULL, NULL,
-    "disables extra light, e.g. from gun flashes",
+  [dsda_arg_cman_noflash] = {
+    "-cman_noflash", NULL, NULL,
+    "disables gun flashes while Cameraman is active",
     arg_null,
-  },
-  [dsda_arg_cman_viddump] = {
-    "-cman_viddump", NULL, NULL,
-    "works the same as -viddump, but only captures the portion when Cameraman is active",
-    arg_string,
   },
 };
 

@@ -85,9 +85,9 @@ struct
 } cman_out;
 
 // Extra behavior settings
-dboolean cman_auto_skip = false;
-dboolean cman_auto_exit = false;
-dboolean cman_no_extra_light = false;
+dboolean cman_skip = false;
+dboolean cman_exit = false;
+dboolean cman_noflash = false;
 
 // Track active state to detect changes
 dboolean cman_was_active = false;
@@ -417,15 +417,15 @@ int CMAN_Ticker()
     if (cman.hide_player)
       player->mo->flags2 |= MF2_DONTDRAW;
 
-    // Disable extra light
-    if (cman_no_extra_light)
+    // Disable gun flashes
+    if (cman_noflash)
       player->extralight = 0;
   }
   else
   {
     // Auto-exit after the camera is done, but not while skipping frames
     // The skip mode check prevents premature exits, e.g. when skipping a level in multi-level demos
-    if (cman_auto_exit && !dsda_SkipMode())
+    if (cman_exit && !dsda_SkipMode())
       I_SafeExit(0);
   }
 
@@ -478,7 +478,7 @@ float CMAN_FloatInRange(float value, float min, float max)
     return value;
 }
 
-// Reduces user error by validating and auto-correcting demo playback options when -cman_viddump argument is used.
+// Reduces user error by validating and auto-correcting demo playback options when -viddump argument is used.
 void CMAN_CorrectPlaybackOptionsForViddump()
 {
   // All possible ways to configure demo playback
@@ -520,27 +520,21 @@ void CMAN_Init()
   if (!cman_arg->found)
     return;
 
-  // Look for -cman_auto_skip command line argument
-  if (dsda_Flag(dsda_arg_cman_auto_skip))
-    cman_auto_skip = true;
+  // Look for -cman_skip command line argument
+  if (dsda_Flag(dsda_arg_cman_skip))
+    cman_skip = true;
 
-  // Look for -cman_auto_exit command line argument
-  if (dsda_Flag(dsda_arg_cman_auto_exit))
-    cman_auto_exit = true;
+  // Look for -cman_exit command line argument
+  if (dsda_Flag(dsda_arg_cman_exit))
+    cman_exit = true;
 
-  // Look for -cman_no_extra_light command line argument
-  if (dsda_Flag(dsda_arg_cman_no_extra_light))
-    cman_no_extra_light = true;
+  // Look for -cman_noflash command line argument
+  if (dsda_Flag(dsda_arg_cman_noflash))
+    cman_noflash = true;
 
-  // Look for -cman_viddump command line argument
-  dsda_arg_t *cman_viddump_arg = dsda_Arg(dsda_arg_cman_viddump);
-  if (cman_viddump_arg->found)
-  {
-    cman_auto_skip = true;
-    cman_auto_exit = true;
-    dsda_UpdateStringArg(dsda_arg_viddump, cman_viddump_arg->value.v_string);
+  // Look for -viddump command line argument
+  if (dsda_Flag(dsda_arg_viddump))
     CMAN_CorrectPlaybackOptionsForViddump();
-  }
 
   CMAN_InitDefaults();
 
@@ -645,5 +639,5 @@ void CMAN_Init()
 // Meant to be called when setting up skiptics. Returns amount of tics to skip or -1 if no skip is needed.
 int CMAN_SkipTics()
 {
-  return cman_auto_skip ? cman.delay : -1;
+  return cman_skip ? cman.delay : -1;
 }

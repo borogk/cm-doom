@@ -39,13 +39,12 @@ Run with the following fork-specific command line parameters (all are optional):
 ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
 If not specified, Cameraman functionality is disabled and all parameters described below are ignored.
 
-`-cman_auto_skip` automatically skips to the frame when the camera becomes active 
+`-cman_skip` automatically skips to the frame when the camera becomes active 
 (**'delay'** parameter in camera profile).
 
-`-cman_auto_exit` automatically exits as soon as the camera path is completed.
+`-cman_exit` automatically exits as soon as the camera path is completed.
 
-`-cman_viddump <videofile>` shortcut to activate auto-skip, auto-exit and viddump at the same time.
-Essentially, outputs a video that captures the camera path and nothing else.
+`-cman_noflash` disables gun flashes lighting up the environment, in case you find them distracting.
 
 Examples:
 ```shell
@@ -56,10 +55,10 @@ cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
 cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman
 
 # Same as above, but skips to the camera playback
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_auto_skip
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_skip
 
 # Outputs the demo+camera playback to a video clip, immediately exiting after it's done
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_viddump vid.mkv
+cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_skip -cman_exit -viddump vid.mkv
 ```
 
 ### How different is this from regular dsda-doom?
