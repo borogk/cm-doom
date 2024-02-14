@@ -361,6 +361,9 @@ void CMAN_LevelStart()
 // Returns true when Cameraman is engaged, this should tell P_WalkTicker back the camera control is overridden.
 int CMAN_Ticker()
 {
+  // Player mobj to manipulate if needed
+  player_t* player = &players[displayplayer];
+
   // Cameraman is not loaded at all, quit without touching the camera or anything else
   if (cman.delay < 0)
     return false;
@@ -394,9 +397,6 @@ int CMAN_Ticker()
     walkcamera.angle = CMAN_FromZDoomAngle(cman_out.a);
     walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
 
-    // Player mobj to manipulate if needed
-    player_t* player = &players[displayplayer];
-
     // Warp the player (not supported during demo playback)
     if (cman.warp_player && !demoplayback)
     {
@@ -418,10 +418,6 @@ int CMAN_Ticker()
     // Hide the player
     if (cman.hide_player)
       player->mo->flags2 |= MF2_DONTDRAW;
-
-    // Disable gun flashes
-    if (cman_noflash)
-      player->extralight = 0;
   }
   else
   {
@@ -430,6 +426,10 @@ int CMAN_Ticker()
     if (cman_exit && !dsda_SkipMode())
       I_SafeExit(0);
   }
+
+  // Disable gun flashes
+  if (cman_noflash)
+    player->extralight = 0;
 
   cman_was_active = true;
   return true;
