@@ -15,6 +15,8 @@
  *  Cameraman module.
  */
 
+#include <math.h>
+
 #include "cman.h"
 #include "e6y.h"
 #include "doomstat.h"
