@@ -119,6 +119,8 @@
 // Allows use of HELP2 screen for PWADs under DOOM 1
 int pwad_help2_check;
 
+#include "cman.h"
+
 struct
 {
     int type;   // mobjtype_t
@@ -4103,6 +4105,9 @@ void doom_printf(const char *s, ...)
 //e6y
 void P_WalkTicker()
 {
+  if (CMAN_Ticker())
+    return;
+
   int strafe;
   int speed;
   int tspeed;

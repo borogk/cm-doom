@@ -121,6 +121,8 @@
 
 #include "i_glob.h"
 
+#include "cman.h"
+
 static void D_PageDrawer(void);
 
 char* iwadlump;
@@ -377,6 +379,12 @@ void D_Display (fixed_t frac)
   static gamestate_t oldgamestate = GS_DEFAULT;
   dboolean wipe;
   dboolean viewactive = false, isborder = false;
+
+  // Enable viddump during normal play
+  if (capturing_video && !dsda_SkipMode())
+  {
+    I_QueueFrameCapture();
+  }
 
   // e6y
   if (dsda_SkipMode())
@@ -2019,6 +2027,9 @@ static void D_DoomMainSetup(void)
   e6y_InitCommandLine();
 
   D_AddFile(port_wad_file, source_auto_load);
+
+  lprintf(LO_DEBUG, "CMAN_Init: Initializing Cameraman.\n");
+  CMAN_Init();
 
   HandlePlayback(); // must come before autoload: may detect iwad in footer
 

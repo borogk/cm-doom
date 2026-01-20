@@ -1243,6 +1243,9 @@ void I_UpdateVideoMode(void)
       init_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
   }
 
+  if (dsda_Flag(dsda_arg_cman_headless))
+    init_flags |= SDL_WINDOW_HIDDEN;
+
   if (V_IsOpenGLMode())
   {
     SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 0 );
