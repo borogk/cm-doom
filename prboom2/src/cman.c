@@ -204,7 +204,7 @@ int CMAN_Ticker() {
 SDL_Thread *cmdthread;
 int run_cmdthread;
 
-static int CMAN_CmdThread(void) {
+static int CMAN_CmdThread(void *data) {
     int n;
     char buffer[BUFFER_SIZE];
     char cmd[BUFFER_SIZE];
