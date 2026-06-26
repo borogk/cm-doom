@@ -33,6 +33,7 @@
 #include "dsda/mapinfo.h"
 #include "dsda/music.h"
 #include "dsda/options.h"
+#include "dsda/settings.h"
 
 #include "save.h"
 
@@ -43,17 +44,16 @@ extern int dsda_max_kill_requirement;
 extern int player_damage_last_tic;
 
 static void dsda_ArchiveInternal(void) {
-  uint64_t features;
-
   P_SAVE_X(dsda_max_kill_requirement);
   P_SAVE_X(player_damage_last_tic);
 
-  features = dsda_UsedFeatures();
-  P_SAVE_X(features);
+  for (int f = 0; f < FEATURE_SLOTS; f++) {
+    P_SAVE_X(dsda_UsedFeatures()[f]);
+  }
 }
 
 static void dsda_UnArchiveInternal(void) {
-  uint64_t features;
+  byte features[FEATURE_SLOTS];
 
   P_LOAD_X(dsda_max_kill_requirement);
   P_LOAD_X(player_damage_last_tic);
@@ -142,6 +142,38 @@ static void dsda_UnArchiveContext(void) {
   true_basetic = gametic - true_logictic_value;
 }
 
+int saved_pistolstart, saved_respawnparm, saved_fastparm, saved_nomonsters, saved_coop_spawns;
+
+void dsda_ArchiveGameModifiers(void)
+{
+  saved_pistolstart = pistolstart;
+  saved_respawnparm = respawnparm;
+  saved_fastparm    = fastparm;
+  saved_nomonsters  = nomonsters;
+  saved_coop_spawns = coop_spawns;
+
+  P_SAVE_X(saved_pistolstart);
+  P_SAVE_X(saved_respawnparm);
+  P_SAVE_X(saved_fastparm);
+  P_SAVE_X(saved_nomonsters);
+  P_SAVE_X(saved_coop_spawns);
+}
+
+void dsda_UnArchiveGameModifiers(void)
+{
+  P_LOAD_X(saved_pistolstart);
+  P_LOAD_X(saved_respawnparm);
+  P_LOAD_X(saved_fastparm);
+  P_LOAD_X(saved_nomonsters);
+  P_LOAD_X(saved_coop_spawns);
+
+  dsda_UpdateIntConfig(dsda_config_pistol_start,     saved_pistolstart, true);
+  dsda_UpdateIntConfig(dsda_config_respawn_monsters, saved_respawnparm, true);
+  dsda_UpdateIntConfig(dsda_config_fast_monsters,    saved_fastparm,    true);
+  dsda_UpdateIntConfig(dsda_config_no_monsters,      saved_nomonsters,  true);
+  dsda_UpdateIntConfig(dsda_config_coop_spawns,      saved_coop_spawns, true);
+}
+
 void dsda_ArchiveAll(void) {
   dsda_ArchiveContext();
 
@@ -159,6 +191,7 @@ void dsda_ArchiveAll(void) {
   P_ArchiveRNG();
   P_ArchiveMap();
 
+  dsda_ArchiveGameModifiers();
   dsda_ArchiveInternal();
 }
 
@@ -179,6 +212,7 @@ void dsda_UnArchiveAll(void) {
   P_UnArchiveMap();
   P_MapEnd();
 
+  dsda_UnArchiveGameModifiers();
   dsda_UnArchiveInternal();
 }
 
@@ -186,12 +220,16 @@ void dsda_InitSaveDir(void) {
   dsda_base_save_dir = dsda_DetectDirectory("DOOMSAVEDIR", dsda_arg_save);
 }
 
-static char* dsda_SaveDir(void) {
-  if (dsda_IntConfig(dsda_config_organized_saves)) {
-    if (!dsda_wad_save_dir)
-      dsda_wad_save_dir = dsda_DataDir();
+char* dsda_SaveDir(void) {
+  dsda_arg_t* arg = dsda_Arg(dsda_arg_save);
 
-    return dsda_wad_save_dir;
+  if (!arg->found) {
+    if (dsda_IntConfig(dsda_config_organized_saves)) {
+      if (!dsda_wad_save_dir)
+        dsda_wad_save_dir = dsda_DataDir();
+
+      return dsda_wad_save_dir;
+    }
   }
 
   return dsda_base_save_dir;
@@ -248,6 +286,10 @@ static void dsda_MarkSaveSlotUsed(int slot) {
   demo_save_slots[demo_save_slot_count - 1] = slot;
 }
 
+int dsda_AllowAnyMenuSave(void) {
+  return !dsda_StrictMode() || dsda_AllowCasualExCmdFeatures();
+}
+
 int dsda_AllowMenuLoad(int slot) {
   int i;
 
@@ -282,4 +324,26 @@ int dsda_LastSaveSlot(void) {
 
 void dsda_ResetLastSaveSlot(void) {
   last_save_file_slot = -1;
+}
+
+void dsda_UpdateAutoSaves(void) {
+  static int automap = -1;
+  static int autoepisode = -1;
+
+  void M_AutoSave(void);
+
+  if (!dsda_IntConfig(dsda_config_auto_save) ||
+      gamestate != GS_LEVEL ||
+      gameaction != ga_nothing ||
+      demoplayback ||
+      demorecording)
+    return;
+
+  if (automap != gamemap || autoepisode != gameepisode) {
+    automap = gamemap;
+    autoepisode = gameepisode;
+
+    if (!leveltime)
+      M_AutoSave();
+  }
 }

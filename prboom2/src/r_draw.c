@@ -121,6 +121,9 @@ static int fuzzoffset[FUZZTABLE];
 
 static int fuzzpos = 0;
 
+// Fuzz cell size for scaled software fuzz
+static int fuzzcellsize;
+
 // render pipelines
 #define RDC_STANDARD      1
 #define RDC_TRANSLUCENT   2
@@ -482,6 +485,52 @@ void R_InitBuffer(int width, int height)
 
   for (i=0; i<FUZZTABLE; i++)
     fuzzoffset[i] = fuzzoffset_org[i]*screens[0].pitch;
+  
+  if (!tallscreen)
+    fuzzcellsize = (SCREENHEIGHT + 100) / 200;
+  else
+    fuzzcellsize = (SCREENWIDTH + 160) / 320;
+}
+
+//
+// R_FillBackColor
+// Fills the statusbar widescreen area
+// with a color
+//
+
+void R_FillBackColor (void)
+{
+  extern patchnum_t stbarbg;
+  static byte col;
+  static byte col_top;
+  static int prevlump = -1;
+  const int stbar_top = SCREENHEIGHT - ST_SCALED_HEIGHT;
+  const int ST_SCALED_BORDER = brdr_b.height * patches_scaley/2;
+  int lump = stbarbg.lumpnum;
+
+  if (prevlump != lump)
+  {
+    const unsigned char *playpal = V_GetPlaypal();
+    SDL_Color stbar_color = V_GetPatchColor(lump);
+    int r = stbar_color.r;
+    int g = stbar_color.g;
+    int b = stbar_color.b;
+
+    // Convert to palette and tune down saturation
+    col = V_BestColor(playpal, r/3, g/3, b/3);
+    col_top = V_BestColor(playpal, r/2, g/2, b/2);
+
+    // If colors are the same, brighten top
+    if (col_top == col)
+      col_top = V_BestColor(playpal, r, g, b);
+
+    prevlump = lump;
+  }
+
+  V_BeginMenuDraw();
+  V_FillRect(1, 0, stbar_top, SCREENWIDTH, ST_SCALED_BORDER, col_top);
+  V_FillRect(1, 0, stbar_top + ST_SCALED_BORDER, SCREENWIDTH, ST_SCALED_HEIGHT - ST_SCALED_BORDER, col);
+  V_EndMenuDraw();
 }
 
 //
@@ -511,20 +560,19 @@ void R_FillBackScreen (void)
     if (only_stbar && ST_SCALED_OFFSETX > 0)
     {
       int stbar_top = SCREENHEIGHT - ST_SCALED_HEIGHT;
+      int stbar_solid_bg = dsda_IntConfig(dsda_config_sts_solid_bg_color);
 
-      if (V_IsOpenGLMode())
-        V_FillFlat(grnrock.lumpnum, 1, 0, stbar_top, SCREENWIDTH, ST_SCALED_HEIGHT, VPT_NONE);
-      else
+      if (stbar_solid_bg)
       {
-        V_FillFlat(grnrock.lumpnum, 1,
-          0, stbar_top, ST_SCALED_OFFSETX, ST_SCALED_HEIGHT, VPT_NONE);
-        V_FillFlat(grnrock.lumpnum, 1,
-          SCREENWIDTH - ST_SCALED_OFFSETX, stbar_top, ST_SCALED_OFFSETX, ST_SCALED_HEIGHT, VPT_NONE);
-
-        // For custom huds, need to put the backfill inside the bar area (in the copy buffer)
-        V_FillFlat(grnrock.lumpnum, 0,
-          ST_SCALED_OFFSETX, stbar_top, SCREENWIDTH - 2 * ST_SCALED_OFFSETX, ST_SCALED_HEIGHT, VPT_NONE);
+        R_FillBackColor();
+        V_EndUIDraw();
+        return;
       }
+
+      if (V_IsOpenGLMode()) // OpenGL has no way to adjust y-offset independent from height
+        V_FillFlat(grnrock.lumpnum, 1, 0, 0, SCREENWIDTH, SCREENHEIGHT, VPT_STRETCH);
+      else
+        V_FillFlat(grnrock.lumpnum, 1, 0, stbar_top, SCREENWIDTH, ST_SCALED_HEIGHT, VPT_STRETCH);
 
       // heretic_note: I think this looks bad, so I'm skipping it...
       if (!heretic)
@@ -586,4 +634,17 @@ void R_SetFuzzPos(int fp)
 int R_GetFuzzPos()
 {
   return fuzzpos;
+}
+
+void R_ResetFuzzCol(int height)
+{
+  R_ResetColumnBuffer();
+
+  fuzzpos = (fuzzpos + (height / fuzzcellsize)) % FUZZTABLE;
+}
+
+void R_CheckFuzzCol(int x, int height)
+{
+  if (!(x % fuzzcellsize))
+    R_ResetFuzzCol(height);
 }

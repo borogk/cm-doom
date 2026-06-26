@@ -1038,6 +1038,9 @@ dboolean P_CeilingPlanesDiffer(const sector_t *sec, const sector_t *other);
 dboolean PUREFUNC P_IsSecret
 ( const sector_t *sec );
 
+dboolean PUREFUNC P_IsDeathExit
+( const sector_t *sec );
+
 dboolean PUREFUNC P_WasSecret
 ( const sector_t *sec );
 
@@ -1240,6 +1243,12 @@ void P_InitPicAnims
 
 void P_InitSwitchList
 ( void );
+
+void P_StartButton
+( line_t*       line,
+  bwhere_e      w,
+  int           texture,
+  int           time );
 
 // at map load
 void P_SpawnSpecials

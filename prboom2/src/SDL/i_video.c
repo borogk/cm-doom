@@ -32,6 +32,8 @@
  *-----------------------------------------------------------------------------
  */
 
+#include <SDL_render.h>
+#include <SDL_video.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -89,6 +91,7 @@
 #include "dsda/palette.h"
 #include "dsda/pause.h"
 #include "dsda/settings.h"
+#include "dsda/skip.h"
 #include "dsda/time.h"
 #include "dsda/gl/render_scale.h"
 
@@ -117,10 +120,13 @@ SDL_Surface *screen;
 static SDL_Surface *buffer;
 SDL_Window *sdl_window;
 SDL_Renderer *sdl_renderer;
-static SDL_Texture *sdl_texture;
+SDL_Texture *sdl_texture;
 static SDL_GLContext sdl_glcontext;
 unsigned int windowid = 0;
-SDL_Rect src_rect = { 0, 0, 0, 0 };
+SDL_Rect src_rect = { 0, 0, 0, 0 };       // Drawn pixels, independent of window size
+SDL_Rect window_rect = { 0, 0, 0, 0 };    // Physical window
+SDL_Rect renderer_rect = { 0, 0, 0, 0 };  // The window, but with HiDPI accounted
+SDL_Rect viewport_rect = { 0, 0, 0, 0 };  // The renderer, but without the black bars
 
 ////////////////////////////////////////////////////////////////////////////
 // Input code
@@ -128,6 +134,7 @@ int             leds_always_off = 0; // Expected by m_misc, not relevant
 
 // Mouse handling
 static dboolean mouse_enabled; // usemouse, but can be overriden by -nomouse
+int mouse_hide_timer = 0;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Keyboard handling
@@ -268,6 +275,11 @@ static int I_TranslateKey(SDL_Keysym* key)
 
 }
 
+dboolean I_WindowFocused(void)
+{
+  return window_focused;
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 // Main input code
 
@@ -294,121 +306,130 @@ static void I_GetEvent(void)
   SDL_Event SDLEvent;
   SDL_Event *Event = &SDLEvent;
 
-while (SDL_PollEvent(Event))
-{
-  switch (Event->type) {
-  case SDL_KEYDOWN:
+  while (SDL_PollEvent(Event))
+  {
+    switch (Event->type) {
+      case SDL_KEYDOWN:
 #ifdef __APPLE__
-    if (Event->key.keysym.mod & KMOD_GUI)
-    {
-      // Switch windowed<->fullscreen if pressed <Command-F>
-      if (Event->key.keysym.sym == SDLK_f)
-      {
-        V_ToggleFullscreen();
-        break;
-      }
-    }
+        if (Event->key.keysym.mod & KMOD_GUI)
+        {
+          // Switch windowed<->fullscreen if pressed <Command-F>
+          if (Event->key.keysym.sym == SDLK_f)
+          {
+            V_ToggleFullscreen();
+            break;
+          }
+        }
 #else
-    if (Event->key.keysym.mod & KMOD_LALT)
-    {
-      // Prevent executing action on Alt-Tab
-      if (Event->key.keysym.sym == SDLK_TAB)
-      {
-        break;
-      }
-      // Switch windowed<->fullscreen if pressed Alt-Enter
-      else if (Event->key.keysym.sym == SDLK_RETURN)
-      {
-        V_ToggleFullscreen();
-        break;
-      }
-      // Immediately exit on Alt+F4 ("Boss Key")
-      else if (Event->key.keysym.sym == SDLK_F4)
-      {
-        I_SafeExit(0);
-        break;
-      }
-    }
+        if (Event->key.keysym.mod & KMOD_LALT)
+        {
+          // Prevent executing action on Alt-Tab
+          if (Event->key.keysym.sym == SDLK_TAB)
+          {
+            break;
+          }
+          // Switch windowed<->fullscreen if pressed Alt-Enter
+          else if (Event->key.keysym.sym == SDLK_RETURN)
+          {
+            V_ToggleFullscreen();
+            break;
+          }
+          // Immediately exit on Alt+F4 ("Boss Key")
+          else if (Event->key.keysym.sym == SDLK_F4)
+          {
+            I_SafeExit(0);
+            break;
+          }
+        }
 #endif
-    event.type = ev_keydown;
-    event.data1.i = I_TranslateKey(&Event->key.keysym);
-    D_PostEvent(&event);
-    break;
-
-  case SDL_KEYUP:
-  {
-    event.type = ev_keyup;
-    event.data1.i = I_TranslateKey(&Event->key.keysym);
-    D_PostEvent(&event);
-  }
-  break;
-
-  case SDL_MOUSEBUTTONDOWN:
-  case SDL_MOUSEBUTTONUP:
-  if (mouse_enabled && window_focused)
-  {
-    event.type = ev_mouse;
-    event.data1.i = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
-    D_PostEvent(&event);
-  }
-  break;
-
-  case SDL_MOUSEWHEEL:
-  if (mouse_enabled && window_focused)
-  {
-    if (Event->wheel.y > 0)
-    {
-      event.data1.i = KEYD_MWHEELUP;
-
-      event.type = ev_keydown;
-      D_PostEvent(&event);
-
-      event.type = ev_keyup;
-      D_PostEvent(&event);
-    }
-    else if (Event->wheel.y < 0)
-    {
-      event.data1.i = KEYD_MWHEELDOWN;
-
-      event.type = ev_keydown;
-      D_PostEvent(&event);
-
-      event.type = ev_keyup;
-      D_PostEvent(&event);
-    }
-  }
-  break;
-
-  case SDL_TEXTINPUT:
-    event.type = ev_text;
-    event.text = Event->text.text;
-    D_PostEvent(&event);
-    break;
-
-  case SDL_WINDOWEVENT:
-    if (Event->window.windowID == windowid)
-    {
-      switch (Event->window.event)
-      {
-      case SDL_WINDOWEVENT_FOCUS_GAINED:
-      case SDL_WINDOWEVENT_FOCUS_LOST:
-        UpdateFocus();
+        event.type = ev_keydown;
+        event.data1.i = I_TranslateKey(&Event->key.keysym);
+        D_PostEvent(&event);
         break;
-      case SDL_WINDOWEVENT_SIZE_CHANGED:
-        ApplyWindowResize(Event);
+
+      case SDL_KEYUP:
+        {
+          event.type = ev_keyup;
+          event.data1.i = I_TranslateKey(&Event->key.keysym);
+          D_PostEvent(&event);
+        }
         break;
-      }
+
+      case SDL_MOUSEBUTTONDOWN:
+      case SDL_MOUSEBUTTONUP:
+        if (mouse_enabled && window_focused)
+        {
+          event.type = ev_mouse;
+          event.data1.i = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
+          D_PostEvent(&event);
+        }
+        break;
+
+      case SDL_MOUSEWHEEL:
+        if (mouse_enabled && window_focused)
+        {
+          int mouseb;
+
+          if (Event->wheel.y > 0)
+            mouseb = KEYD_MWHEELUP;
+          else if (Event->wheel.y < 0)
+            mouseb = KEYD_MWHEELDOWN;
+          else if (Event->wheel.x < 0)
+            mouseb = KEYD_MWHEELLEFT;
+          else if (Event->wheel.x > 0)
+            mouseb = KEYD_MWHEELRIGHT;
+          else
+            mouseb = 0;
+
+          if(mouseb)
+          {
+            event.data1.i = mouseb;
+
+            event.type = ev_keydown;
+            D_PostEvent(&event);
+
+            event.type = ev_keyup;
+            D_PostEvent(&event);
+          }
+        }
+        break;
+
+      case SDL_CONTROLLERBUTTONDOWN:
+      case SDL_CONTROLLERBUTTONUP:
+        if (dsda_AllowGameController())
+          dsda_PollGameControllerButtons();
+        break;
+
+      case SDL_TEXTINPUT:
+        event.type = ev_text;
+        event.text = Event->text.text;
+        D_PostEvent(&event);
+        break;
+
+      case SDL_WINDOWEVENT:
+        if (Event->window.windowID == windowid)
+        {
+          switch (Event->window.event)
+          {
+          case SDL_WINDOWEVENT_FOCUS_GAINED:
+          case SDL_WINDOWEVENT_FOCUS_LOST:
+            UpdateFocus();
+            break;
+          case SDL_WINDOWEVENT_SIZE_CHANGED:
+            ApplyWindowResize(Event);
+            break;
+          }
+        }
+        break;
+
+      case SDL_QUIT:
+        S_StartVoidSound(sfx_swtchn);
+        M_QuitDOOM(0);
+
+      default:
+        break;
     }
-    break;
-
-  case SDL_QUIT:
-    S_StartVoidSound(sfx_swtchn);
-    M_QuitDOOM(0);
-
-  default:
-    break;
   }
-}
 }
 
 //
@@ -571,15 +592,6 @@ static int newpal = 0;
 
 void I_FinishUpdate (void)
 {
-  //e6y: new mouse code
-  UpdateGrab();
-
-#ifdef MONITOR_VISIBILITY
-  //!!if (!(SDL_GetAppState()&SDL_APPACTIVE)) {
-  //!!  return;
-  //!!}
-#endif
-
   if (V_IsOpenGLMode()) {
     // proff 04/05/2000: swap OpenGL buffers
     gld_Finish();
@@ -883,59 +895,6 @@ static void I_FillScreenResolutionsList(void)
 }
 
 // e6y
-// Function for trying to set the closest supported resolution if the requested mode can't be set correctly.
-// For example dsda-doom.exe -geom 1025x768 -nowindow will set 1024x768.
-// It should be used only for fullscreen modes.
-static void I_ClosestResolution (int *width, int *height)
-{
-  int display_index = 0;
-  int twidth, theight;
-  int cwidth = 0, cheight = 0;
-  int i, count;
-  unsigned int closest = UINT_MAX;
-  unsigned int dist;
-
-  if (!SDL_WasInit(SDL_INIT_VIDEO))
-    return;
-
-  count = SDL_GetNumDisplayModes(display_index);
-
-  if (count > 0)
-  {
-    for(i=0; i<count; ++i)
-    {
-      SDL_DisplayMode mode;
-      SDL_GetDisplayMode(display_index, i, &mode);
-
-      twidth = mode.w;
-      theight = mode.h;
-
-      if (twidth == *width && theight == *height)
-        return;
-
-      //if (iteration == 0 && (twidth < *width || theight < *height))
-      //  continue;
-
-      dist = (twidth - *width) * (twidth - *width) +
-             (theight - *height) * (theight - *height);
-
-      if (dist < closest)
-      {
-        closest = dist;
-        cwidth = twidth;
-        cheight = theight;
-      }
-    }
-    if (closest != 4294967295u)
-    {
-      *width = cwidth;
-      *height = cheight;
-      return;
-    }
-  }
-}
-
-// e6y
 // It is a simple test of CPU cache misses.
 unsigned int I_TestCPUCacheMisses(int width, int height, unsigned int mintime)
 {
@@ -973,21 +932,17 @@ unsigned int I_TestCPUCacheMisses(int width, int height, unsigned int mintime)
 // Calculates the screen resolution, possibly using the supplied guide
 void I_CalculateRes(int width, int height)
 {
-  if (desired_fullscreen && exclusive_fullscreen)
-  {
-    I_ClosestResolution(&width, &height);
-  }
+  SCREENWIDTH = width;
+  SCREENHEIGHT = height;
 
-  if (V_IsOpenGLMode()) {
-    SCREENWIDTH = width;
-    SCREENHEIGHT = height;
+  if (V_IsOpenGLMode())
+  {
     SCREENPITCH = SCREENWIDTH;
-  } else {
+  }
+  else
+  {
     unsigned int count1, count2;
     int pitch1, pitch2;
-
-    SCREENWIDTH = width;//(width+15) & ~15;
-    SCREENHEIGHT = height;
 
     // e6y
     // Trying to optimise screen pitch for reducing of CPU cache misses.
@@ -1062,16 +1017,16 @@ void I_InitScreenResolution(void)
 
   desired_fullscreen = dsda_IntConfig(dsda_config_use_fullscreen);
 
-  if (dsda_Flag(dsda_arg_fullscreen))
-    desired_fullscreen = 1;
-
-  if (dsda_Flag(dsda_arg_window))
-    desired_fullscreen = 0;
-
   if (init)
   {
     //e6y: ability to change screen resolution from GUI
     I_FillScreenResolutionsList();
+
+    if (dsda_Flag(dsda_arg_fullscreen))
+    desired_fullscreen = 1;
+
+    if (dsda_Flag(dsda_arg_window))
+      desired_fullscreen = 0;
 
     // Video stuff
     arg = dsda_Arg(dsda_arg_width);
@@ -1149,7 +1104,7 @@ void I_InitScreenResolution(void)
 
 void I_SetWindowCaption(void)
 {
-  SDL_SetWindowTitle(NULL, PACKAGE_NAME " " PACKAGE_VERSION);
+  SDL_SetWindowTitle(NULL, PROJECT_NAME " " PROJECT_VERSION);
 }
 
 //
@@ -1209,10 +1164,11 @@ void I_UpdateVideoMode(void)
 {
   int init_flags = SDL_WINDOW_ALLOW_HIGHDPI;
   int screen_multiply;
-  int actualheight;
   int render_vsync;
   int integer_scaling;
   const char *sdl_video_window_pos;
+  int sdl_video_display_index;
+  int x, y;
   const dboolean novsync = dsda_Flag(dsda_arg_timedemo) ||
                            dsda_Flag(dsda_arg_fastdemo);
 
@@ -1220,6 +1176,7 @@ void I_UpdateVideoMode(void)
                          I_DesiredVideoMode() == VID_MODESW;
   render_vsync = dsda_IntConfig(dsda_config_render_vsync) && !novsync;
   sdl_video_window_pos = dsda_StringConfig(dsda_config_sdl_video_window_pos);
+  sdl_video_display_index = dsda_IntConfig(dsda_config_sdl_video_display_index);
   screen_multiply = dsda_IntConfig(dsda_config_render_screen_multiply);
   integer_scaling = dsda_IntConfig(dsda_config_integer_scaling);
 
@@ -1256,6 +1213,28 @@ void I_UpdateVideoMode(void)
     init_flags |= SDL_WINDOW_OPENGL;
   }
 
+  // [FG] aspect ratio correction for the canonical video modes
+  if ((SCREENHEIGHT == 200 || SCREENHEIGHT == 400) && dsda_IntConfig(dsda_config_aspect_ratio_correction))
+  {
+    ACTUALHEIGHT = 6*SCREENHEIGHT/5;
+  }
+  else
+  {
+    ACTUALHEIGHT = SCREENHEIGHT;
+  }
+
+  x = SDL_WINDOWPOS_CENTERED_DISPLAY(sdl_video_display_index);
+  y = SDL_WINDOWPOS_CENTERED_DISPLAY(sdl_video_display_index);
+  if (sdl_video_window_pos)
+  {
+    int nx, ny;
+    if (sscanf(sdl_video_window_pos, "%d,%d", &nx, &ny) == 2)
+    {
+      x = nx;
+      y = ny;
+    }
+  }
+
   if (desired_fullscreen)
   {
     if (exclusive_fullscreen)
@@ -1263,14 +1242,6 @@ void I_UpdateVideoMode(void)
     else
       init_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
   }
-
-  // In windowed mode, the window can be resized while the game is
-  // running.  This feature is disabled on OS X, as it adds an ugly
-  // scroll handle to the corner of the screen.
-#ifndef __APPLE__
-  if (!desired_fullscreen)
-    init_flags |= SDL_WINDOW_RESIZABLE;
-#endif
 
   if (V_IsOpenGLMode())
   {
@@ -1292,12 +1263,12 @@ void I_UpdateVideoMode(void)
     gld_MultisamplingInit();
 
     sdl_window = SDL_CreateWindow(
-      PACKAGE_NAME " " PACKAGE_VERSION,
-      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      SCREENWIDTH * screen_multiply, SCREENHEIGHT * screen_multiply,
+      PROJECT_NAME " " PROJECT_VERSION,
+      x, y,
+      SCREENWIDTH * screen_multiply, ACTUALHEIGHT * screen_multiply,
       init_flags);
     sdl_glcontext = SDL_GL_CreateContext(sdl_window);
-    SDL_SetWindowMinimumSize(sdl_window, SCREENWIDTH, SCREENHEIGHT);
+    SDL_SetWindowMinimumSize(sdl_window, SCREENWIDTH, ACTUALHEIGHT);
   }
   else
   {
@@ -1307,36 +1278,14 @@ void I_UpdateVideoMode(void)
       flags |= SDL_RENDERER_PRESENTVSYNC;
 
     sdl_window = SDL_CreateWindow(
-      PACKAGE_NAME " " PACKAGE_VERSION,
-      SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      SCREENWIDTH, SCREENHEIGHT,
+      PROJECT_NAME " " PROJECT_VERSION,
+      x, y,
+      SCREENWIDTH * screen_multiply, ACTUALHEIGHT * screen_multiply,
       init_flags);
     sdl_renderer = SDL_CreateRenderer(sdl_window, -1, flags);
 
-    // [FG] aspect ratio correction for the canonical video modes
-    if (SCREENHEIGHT == 200 || SCREENHEIGHT == 400)
-    {
-      actualheight = 6*SCREENHEIGHT/5;
-    }
-    else
-    {
-      actualheight = SCREENHEIGHT;
-    }
-
-    SDL_SetWindowMinimumSize(sdl_window, SCREENWIDTH, actualheight);
-    SDL_RenderSetLogicalSize(sdl_renderer, SCREENWIDTH, actualheight);
-
-    // [FG] make sure initial window size is always >= 640x480
-    while (screen_multiply*SCREENWIDTH < 640 || screen_multiply*actualheight < 480)
-    {
-      screen_multiply++;
-    }
-
-    // [FG] apply screen_multiply to initial window size
-    if (!desired_fullscreen)
-    {
-      SDL_SetWindowSize(sdl_window, screen_multiply*SCREENWIDTH, screen_multiply*actualheight);
-    }
+    SDL_SetWindowMinimumSize(sdl_window, SCREENWIDTH, ACTUALHEIGHT);
+    SDL_RenderSetLogicalSize(sdl_renderer, SCREENWIDTH, ACTUALHEIGHT);
 
     // [FG] force integer scales
     SDL_RenderSetIntegerScale(sdl_renderer, integer_scaling);
@@ -1352,17 +1301,20 @@ void I_UpdateVideoMode(void)
     }
   }
 
-  if (sdl_video_window_pos)
+  // When creating the window, its not allowed to set a position in a different display
+  // This allows that
+  SDL_SetWindowPosition(sdl_window, x, y);
+
+  if (desired_fullscreen)
   {
-    int x, y;
-    if (sscanf(sdl_video_window_pos, "%d,%d", &x, &y) == 2)
-    {
-      SDL_SetWindowPosition(sdl_window, x, y);
-    }
-    if (strcmp(sdl_video_window_pos, "center") == 0)
-    {
-      SDL_SetWindowPosition(sdl_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    }
+    if (exclusive_fullscreen)
+      SDL_SetWindowFullscreen(sdl_window, SDL_WINDOW_FULLSCREEN);
+    else
+      SDL_SetWindowFullscreen(sdl_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+  }
+  else
+  {
+    SDL_SetWindowResizable(sdl_window, SDL_TRUE);
   }
 
   // Workaround for SDL 2.0.14 alt-tab bug (taken from Doom Retro)
@@ -1457,7 +1409,6 @@ void I_UpdateVideoMode(void)
     deh_changeCompTranslucency();
 
     // elim - Sets up viewport sizing for render-to-texture scaling
-    dsda_GLGetSDLWindowSize(sdl_window);
     dsda_GLSetRenderViewportParams();
     dsda_GLSetRenderViewport();
   }
@@ -1474,6 +1425,7 @@ static void ActivateMouse(void)
 
 static void DeactivateMouse(void)
 {
+  SDL_ShowCursor(SDL_ENABLE);
   SDL_SetRelativeMouseMode(SDL_FALSE);
 }
 
@@ -1515,6 +1467,9 @@ static void I_ReadMouse(void)
   if (!mouse_enabled)
     return;
 
+  //e6y: new mouse code
+  UpdateGrab();
+
   if (window_focused)
   {
     int x, y;
@@ -1530,6 +1485,9 @@ static void I_ReadMouse(void)
       event.data2.i = -y;
 
       D_PostEvent(&event);
+
+      if (!menuactive)
+        mouse_hide_timer = 2 * TICRATE;
     }
   }
 }
@@ -1545,11 +1503,6 @@ static dboolean MouseShouldBeGrabbed()
   if (!window_focused)
     return false;
 
-  // always grab the mouse when full screen (dont want to
-  // see the mouse pointer)
-  if (desired_fullscreen)
-    return true;
-
   // if we specify not to grab the mouse, never grab
   if (!mouse_enabled)
     return false;
@@ -1559,12 +1512,26 @@ static dboolean MouseShouldBeGrabbed()
   if (walkcamera.type)
     return (demoplayback && gamestate == GS_LEVEL && !menuactive);
 
+  // during playback the mouse should be hidden when not moving
+  if (demoplayback && !menuactive && mouse_hide_timer > 0)
+  {
+    if (!dsda_SkipMode())
+      mouse_hide_timer--;
+
+    return false;
+  }
+
+  // always grab the mouse when full screen (dont want to
+  // see the mouse pointer)
+  if (desired_fullscreen)
+    return true;
+
   // when menu is active or game is paused, release the mouse
   if (menuactive || dsda_Paused())
     return false;
 
-  // only grab mouse when playing levels (but not demos)
-  return !demoplayback;
+  // grab mouse when playing levels
+  return true;
 }
 
 // Update the value of window_focused when we get a focus event
@@ -1594,8 +1561,7 @@ static void UpdateFocus(void)
     V_TouchPalette();
   }
 
-  // Should the screen be grabbed?
-  //    screenvisible = (state & SDL_APPACTIVE) != 0;
+  S_ResetVolume();
 }
 
 void UpdateGrab(void)
@@ -1605,24 +1571,59 @@ void UpdateGrab(void)
 
   grab = MouseShouldBeGrabbed();
 
-  if (grab && !currently_grabbed)
+  if (grab)
   {
-    ActivateMouse();
-  }
+    if (!currently_grabbed)
+      ActivateMouse();
 
-  if (!grab && currently_grabbed)
-  {
-    DeactivateMouse();
+    if (!demoplayback || walkcamera.type)
+      SDL_WarpMouseInWindow(sdl_window, window_rect.w / 2, window_rect.h / 2);
   }
+  else if (currently_grabbed)
+    DeactivateMouse();
 
   currently_grabbed = grab;
 }
 
 static void ApplyWindowResize(SDL_Event *resize_event)
 {
+  I_SetWindowRect();
+  I_SetViewportRect();
+
   if (!V_IsOpenGLMode() || !sdl_window)
     return;
 
-  dsda_GLGetSDLWindowSize(sdl_window);
   dsda_GLSetRenderViewportParams();
+}
+
+void I_SetWindowRect()
+{
+  SDL_GetWindowSize(sdl_window, &window_rect.w, &window_rect.h);
+
+  if (V_IsOpenGLMode())
+    SDL_GL_GetDrawableSize(sdl_window, &renderer_rect.w, &renderer_rect.h);
+  else
+    SDL_GetRendererOutputSize(sdl_renderer, &renderer_rect.w, &renderer_rect.h);
+}
+
+void I_SetViewportRect()
+{
+  float viewport_aspect = (float)SCREENWIDTH / (float)ACTUALHEIGHT;
+
+  // Black bars on left and right of viewport
+  if (((float)renderer_rect.w / (float)renderer_rect.h) > viewport_aspect)
+  {
+    viewport_rect.w = (int)((float)renderer_rect.h * viewport_aspect);
+    viewport_rect.h = renderer_rect.h;
+    viewport_rect.x = (renderer_rect.w - viewport_rect.w) >> 1;
+    viewport_rect.y = 0;
+  }
+  // Either matching window's aspect ratio, or black bars on top and bottom (ie 21:9 on a 16:9 display)
+  else
+  {
+    viewport_rect.w = renderer_rect.w;
+    viewport_rect.h = (int)((float)renderer_rect.w / viewport_aspect);
+    viewport_rect.x = 0;
+    viewport_rect.y = (renderer_rect.h - viewport_rect.h) >> 1;
+  }
 }

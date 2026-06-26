@@ -49,6 +49,12 @@
 
 dboolean M_Responder (event_t *ev);
 
+dboolean fadeBG(void);
+dboolean M_MenuIsShaded(void);
+void M_ShadedScreen(int scrn);
+
+#define FULLSHADE 20
+
 // Called by main loop,
 // only used for menu (skull cursor) animation.
 
@@ -73,7 +79,10 @@ void M_ForcedLoadGame(const char *msg); // killough 5/15/98: forced loadgames
 
 void M_ResetMenu(void);      // killough 11/98: reset main menu ordering
 
-void M_DrawCredits(void);    // killough 11/98
+void M_DrawCredits(void);
+void M_DrawCreditsDynamic(void);    // killough 11/98
+
+void M_DrawTabs(const char **pages, int m, int y);
 
 /****************************
  *
@@ -168,6 +177,8 @@ typedef struct menu_s
 void M_SetupNextMenu(menu_t *menudef);
 void M_DrawDelVerify(void);
 void M_ChangeMessages(void);
+void M_LeaveSetupMenu(void);
+void M_ClearMenus(void);
 
 extern dboolean delete_verify;
 

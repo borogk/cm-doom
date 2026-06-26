@@ -51,6 +51,7 @@
 #include "doomstat.h"
 #include "d_net.h"
 #include "f_finale.h"
+#include "i_video.h"
 #include "m_file.h"
 #include "m_misc.h"
 #include "m_menu.h"
@@ -86,6 +87,7 @@
 #include "e6y.h"//e6y
 
 #include "dsda.h"
+#include "dsda/aim.h"
 #include "dsda/args.h"
 #include "dsda/brute_force.h"
 #include "dsda/build.h"
@@ -115,6 +117,8 @@
 #include "dsda/utility.h"
 
 #include "cman.h"
+// Allows use of HELP2 screen for PWADs under DOOM 1
+int pwad_help2_check;
 
 struct
 {
@@ -190,9 +194,6 @@ dboolean coop_spawns;
 // with the same mouse behaviour as when recording,
 // but without having to be recording every time.
 int shorttics;
-
-// automatic pistol start when advancing from one level to the next
-int pistolstart;
 
 //
 // controls (have defaults)
@@ -409,6 +410,16 @@ static dboolean WeaponSelectable(weapontype_t weapon)
 
   // Can't select a weapon if we don't own it.
   if (!players[consoleplayer].weaponowned[weapon])
+  {
+    return false;
+  }
+
+  // Can't select the fist if we have the chainsaw, unless
+  // we also have the berserk pack.
+  if ((demo_compatibility)
+      && weapon == wp_fist
+      && players[consoleplayer].weaponowned[wp_chainsaw]
+      && !players[consoleplayer].powers[pw_strength])
   {
     return false;
   }
@@ -773,7 +784,7 @@ void G_BuildTiccmd(ticcmd_t* cmd)
       }
     }
 
-    if (players[consoleplayer].playerstate == PST_LIVE)
+    if (players[consoleplayer].playerstate == PST_LIVE && !dsda_FreeAim())
     {
         if (look < 0)
         {
@@ -793,6 +804,32 @@ void G_BuildTiccmd(ticcmd_t* cmd)
     if (!hexen && dsda_InputActive(dsda_input_jump))
     {
       dsda_QueueExCmdJump();
+    }
+  }
+
+  if (players[consoleplayer].mo && players[consoleplayer].mo->pitch && !dsda_MouseLook())
+    dsda_QueueExCmdLook(XC_LOOK_RESET);
+
+  if (dsda_FreeAim())
+  {
+    short look;
+
+    look = mlooky;
+
+    if (look)
+    {
+      if (players[consoleplayer].mo && !V_IsOpenGLMode())
+      {
+        int target_look = players[consoleplayer].mo->pitch + (look << 16);
+
+        if (target_look < (int) raven_angle_up_limit)
+          look = (raven_angle_up_limit - players[consoleplayer].mo->pitch) >> 16;
+
+        if (target_look > (int) raven_angle_down_limit)
+          look = (raven_angle_down_limit - players[consoleplayer].mo->pitch) >> 16;
+      }
+
+      dsda_QueueExCmdLook(look);
     }
   }
 
@@ -870,15 +907,15 @@ void G_BuildTiccmd(ticcmd_t* cmd)
       {
         // HERETIC_TODO: fix this
         newweapon =
-          dsda_InputActive(dsda_input_weapon1) ? wp_fist :    // killough 5/2/98: reformatted
-          dsda_InputActive(dsda_input_weapon2) ? wp_pistol :
-          dsda_InputActive(dsda_input_weapon3) ? wp_shotgun :
-          dsda_InputActive(dsda_input_weapon4) ? wp_chaingun :
-          dsda_InputActive(dsda_input_weapon5) ? wp_missile :
-          dsda_InputActive(dsda_input_weapon6) && gamemode != shareware ? wp_plasma :
-          dsda_InputActive(dsda_input_weapon7) && gamemode != shareware ? wp_bfg :
-          dsda_InputActive(dsda_input_weapon8) ? wp_chainsaw :
-          (!demo_compatibility && dsda_InputActive(dsda_input_weapon9) && gamemode == commercial) ? wp_supershotgun :
+          dsda_InputTickActivated(dsda_input_weapon1) ? wp_fist :    // killough 5/2/98: reformatted
+          dsda_InputTickActivated(dsda_input_weapon2) ? wp_pistol :
+          dsda_InputTickActivated(dsda_input_weapon3) ? wp_shotgun :
+          dsda_InputTickActivated(dsda_input_weapon4) ? wp_chaingun :
+          dsda_InputTickActivated(dsda_input_weapon5) ? wp_missile :
+          dsda_InputTickActivated(dsda_input_weapon6) && gamemode != shareware ? wp_plasma :
+          dsda_InputTickActivated(dsda_input_weapon7) && gamemode != shareware ? wp_bfg :
+          dsda_InputTickActivated(dsda_input_weapon8) ? wp_chainsaw :
+          (!demo_compatibility && dsda_InputTickActivated(dsda_input_weapon9) && gamemode == commercial) ? wp_supershotgun :
           wp_nochange;
       }
 
@@ -1199,25 +1236,8 @@ static void G_DoLoadLevel (void)
 
   // automatic pistol start when advancing from one level to the next
   if (pistolstart)
-  {
     if (allow_incompatibility)
-    {
       G_PlayerReborn(0);
-    }
-    else if (reelplayback)
-    {
-      // no-op - silently ignore pistolstart when playing demo from the
-      // demo reel
-    }
-    else
-    {
-      const char message[] = "The -pistolstart option is not supported"
-                             " for demos and\n"
-                             " network play.";
-      demorecording = false;
-      I_Error(message);
-    }
-  }
 
   // initialize the msecnode_t freelist.                     phares 3/25/98
   // any nodes in the freelist are gone by now, cleared
@@ -1289,6 +1309,22 @@ dboolean G_Responder (event_t* ev)
       AM_Responder(ev)
     )
   ) return true;
+
+  if (dsda_IntConfig(dsda_config_playback_mouse_controls) &&
+    demoplayback && !timingdemo && dsda_InputActivated(dsda_input_fire))
+  {
+    int x, y;
+
+    dsda_GetMousePosition(&x, &y);
+
+    y = y * ACTUALHEIGHT / viewport_rect.h;
+
+    if (x && y > (ACTUALHEIGHT - ST_SCALED_HEIGHT / 6))
+    {
+      dsda_JumpToLogicTic(demo_tics_count * x / viewport_rect.w);
+      return true;
+    }
+  }
 
   // allow spy mode changes even during the demo
   // killough 2/22/98: even during DM demo
@@ -1439,9 +1475,9 @@ void G_Ticker (void)
   entry_leveltime = leveltime;
 
   // CPhipps - player colour changing
-  if (!demoplayback && mapcolor_plyr[consoleplayer] != mapcolor_me) {
+  if (!demoplayback && mapcolor.plyr[consoleplayer] != mapcolor.me) {
     // Changed my multiplayer colour - Inform the whole game
-    G_ChangedPlayerColour(consoleplayer, mapcolor_me);
+    G_ChangedPlayerColour(consoleplayer, mapcolor.me);
   }
   P_MapStart();
   // do player reborns if needed
@@ -1527,7 +1563,13 @@ void G_Ticker (void)
   else {
     int buf = gametic % BACKUPTICS;
 
-    dsda_UpdateAutoKeyFrames();
+    if (!timingdemo) {
+      dsda_UpdateAutoKeyFrames();
+      dsda_UpdateAutoSaves();
+
+      if (demoplayback)
+        dsda_UpdatePlaybackKeyFrames();
+    }
 
     if (dsda_BruteForce())
     {
@@ -1608,6 +1650,11 @@ void G_Ticker (void)
           {
             M_CheatNoClip();
           }
+
+          if (ex->actions & XC_LOOK && ex->look != XC_LOOK_RESET && !dsda_MouseLook())
+          {
+            dsda_UpdateIntConfig(dsda_config_freelook, 1, false);
+          }
         }
       }
     }
@@ -1664,6 +1711,9 @@ void G_Ticker (void)
 
     case GS_DEMOSCREEN:
       D_PageTicker();
+      break;
+
+    case GS_DEFAULT:
       break;
   }
 
@@ -1762,7 +1812,9 @@ static void G_PlayerFinishLevel(int player)
   p->lookdir = 0;
   p->rain1 = NULL;
   p->rain2 = NULL;
-  playerkeys = 0;
+
+  if (!hexen || (hexen && dsda_MapCluster(gamemap) != dsda_MapCluster(leave_data.map)))
+    p->ravenkeys = 0;
 
   memset(p->powers, 0, sizeof p->powers);
   if (flb.flight_carryover)
@@ -1802,7 +1854,7 @@ void G_ChangedPlayerColour(int pn, int cl)
 
   if (!netgame) return;
 
-  mapcolor_plyr[pn] = cl;
+  mapcolor.plyr[pn] = cl;
 
   // Rebuild colour translation tables accordingly
   R_InitTranslationTables();
@@ -1883,7 +1935,7 @@ void G_PlayerReborn (int player)
 static dboolean G_CheckSpot(int playernum, mapthing_t *mthing)
 {
   fixed_t     x,y;
-  subsector_t *ss;
+  sector_t *sec;
   int         i;
 
   if (!players[playernum].mo)
@@ -1912,11 +1964,11 @@ static dboolean G_CheckSpot(int playernum, mapthing_t *mthing)
     players[playernum].mo->flags2 |= MF2_PASSMOBJ;
 
     // spawn a teleport fog
-    ss = R_PointInSubsector(x, y);
+    sec = R_PointInSector(x, y);
     an = ((unsigned) ANG45 * (mthing->angle / 45)) >> ANGLETOFINESHIFT;
 
     mo = P_SpawnMobj(x + 20 * finecosine[an], y + 20 * finesine[an],
-                     ss->sector->floorheight + TELEFOGHEIGHT, g_mt_tfog);
+                     sec->floorheight + TELEFOGHEIGHT, g_mt_tfog);
 
     if (players[consoleplayer].viewz != 1)
       S_StartMobjSound(mo, g_sfx_telept);   // don't start sound on first frame
@@ -1944,7 +1996,7 @@ static dboolean G_CheckSpot(int playernum, mapthing_t *mthing)
   }
 
   // spawn a teleport fog
-  ss = R_PointInSubsector (x,y);
+  sec = R_PointInSector (x,y);
   { // Teleport fog at respawn point
     fixed_t xa,ya;
     int an;
@@ -1979,7 +2031,7 @@ static dboolean G_CheckSpot(int playernum, mapthing_t *mthing)
       default:  I_Error("G_CheckSpot: unexpected angle %d\n",an);
       }
 
-    mo = P_SpawnMobj(x+20*xa, y+20*ya, ss->sector->floorheight, MT_TFOG);
+    mo = P_SpawnMobj(x+20*xa, y+20*ya, sec->floorheight, MT_TFOG);
 
     if (players[consoleplayer].viewz != 1)
       S_StartMobjSound(mo, sfx_telept);  // don't start sound on first frame
@@ -2344,6 +2396,10 @@ const char * comp_lev_str[MAX_COMPATIBILITY_LEVEL] =
   "MBF", "PrBoom 2.03beta", "PrBoom v2.1.0-2.1.1", "PrBoom v2.1.2-v2.2.6",
   "PrBoom v2.3.x", "PrBoom 2.4.0", "Current PrBoom", "", "", "", "MBF21" };
 
+const char * hexen_skill_fighter[5] = { "SQUIRE", "KNIGHT", "WARRIOR", "BERSERKER", "TITAN" };
+const char * hexen_skill_cleric[5] = { "ALTAR BOY", "ACOLYTE", "PRIEST", "CARDINAL", "POPE" };
+const char * hexen_skill_mage[5] = { "APPRENTICE", "ENCHANTER", "SORCERER", "WARLOCK", "ARCHIMAGE" };
+
 //==========================================================================
 //
 // RecalculateDrawnSubsectors
@@ -2396,8 +2452,6 @@ void G_AfterLoad(void)
 
   if (setsizeneeded)
     R_ExecuteSetViewSize ();
-
-  R_FillBackScreen ();
 
   BorderNeedRefresh = true;
   ST_Start();
@@ -2720,6 +2774,12 @@ void G_ReloadDefaults(void)
   // killough 3/1/98: Initialize options based on config file
   // (allows functions above to load different values for demos
   // and savegames without messing up defaults).
+
+  // Allows PWAD HELP2 screen for DOOM 1 wads.
+  // there's no easy way to set it only to complevel 0-2, so
+  // I just allowed it for complevel 3 if HELP2 is present
+  if ((compatibility_level <= 3) && (gamemode != commercial) && (gamemode != shareware) && !raven)
+    pwad_help2_check = W_PWADLumpNameExists("HELP2");
 
   options = dsda_Options();
 
@@ -3092,6 +3152,7 @@ void G_WriteDemoTiccmd (ticcmd_t* cmd)
 {
   char buf[10];
   char *p = buf;
+  const byte* data_p = (byte*)buf;
 
   if (compatibility_level == tasdoom_compatibility)
   {
@@ -3124,8 +3185,7 @@ void G_WriteDemoTiccmd (ticcmd_t* cmd)
 
   dsda_WriteTicToDemo(buf, p - buf);
 
-  p = buf; // make SURE it is exactly the same
-  G_ReadOneTick(cmd, (const byte **) &p);
+  G_ReadOneTick(cmd, &data_p);
 }
 
 // These functions are used to read and write game-specific options in demos
@@ -3202,7 +3262,8 @@ byte *G_WriteOptions(byte *demo_p)
       *demo_p++ = comp[i] != 0;
   }
 
-  *demo_p++ = (compatibility_level >= prboom_2_compatibility) && forceOldBsp; // cph 2002/07/20
+  // unused forceOldBsp
+  *demo_p++ = 0;
 
   //----------------
   // Padding at end
@@ -3294,7 +3355,8 @@ const byte *G_ReadOptions(const byte *demo_p)
         comp[i] = *demo_p++;
     }
 
-    forceOldBsp = *demo_p++; // cph 2002/07/20
+    // unused forceOldBsp
+    demo_p++;
   }
   else  /* defaults for versions <= 2.02 */
   {
@@ -3870,7 +3932,7 @@ const byte* G_ReadDemoHeaderEx(const byte *demo_p, size_t size, unsigned int par
     {
       demo_tics_count = dsda_DemoTicsCount(p, demobuffer, demolength);
 
-      sprintf(demo_len_st, "\x1b\x35/%d:%02d",
+      snprintf(demo_len_st, sizeof(demo_len_st), "\x1b\x35/%d:%02d",
         demo_tics_count / TICRATE / 60,
         (demo_tics_count % (60 * TICRATE)) / TICRATE);
     }
@@ -3886,6 +3948,9 @@ void G_StartDemoPlayback(const byte *buffer, int length, int behaviour)
   dsda_InitDemoPlayback();
   demo_p = G_ReadDemoHeaderEx(demobuffer, demolength, RDH_SAFE);
   dsda_AttachPlaybackStream(demo_p, demolength, behaviour);
+
+  dsda_InitAutoKeyFrames();
+  dsda_InitPlaybackKeyFrames();
 
   R_SmoothPlaying_Reset(NULL); // e6y
 }
@@ -3983,13 +4048,29 @@ dboolean G_CheckDemoStatus (void)
     lprintf(LO_INFO, "Timed %u gametics in %u realtics = %-.1f frames per second\n",
              (unsigned) gametic,realtics,
              (unsigned) gametic * (double) TICRATE / realtics);
-    I_SafeExit(0);
+
+    if (dsda_IntConfig(dsda_config_demo_end_quit))
+      I_SafeExit(0);
+    else
+    {
+      timingdemo = false;
+      dsda_ClearPlaybackStream();
+      return false;
+    }
   }
 
   if (demoplayback)
   {
     if (userdemo)
-      I_SafeExit(0);  // killough
+    {
+      if (dsda_IntConfig(dsda_config_demo_end_quit))
+        I_SafeExit(0);  // killough
+      else
+      {
+        dsda_ClearPlaybackStream();
+        return false;
+      }
+    }
 
     G_ReloadDefaults();    // killough 3/1/98
     netgame = false;       // killough 3/29/98
@@ -4083,7 +4164,9 @@ void P_WalkTicker()
   if (dsda_InputActive(dsda_input_strafeleft))
     side -= sidemove[speed];
 
-  forward += mousey;
+  if (dsda_IntConfig(dsda_config_vertmouse))
+    forward += mousey;
+
   if (strafe)
     side += mousex / 4;       /* mead  Don't want to strafe as fast as turns.*/
   else
@@ -4103,7 +4186,7 @@ void P_WalkTicker()
     walkcamera.x = players[0].mo->x;
     walkcamera.y = players[0].mo->y;
     walkcamera.angle = players[0].mo->angle;
-    walkcamera.pitch = P_PlayerPitch(&players[0]);
+    walkcamera.pitch = dsda_PlayerPitch(&players[0]);
   }
 
   if (forward > MAXPLMOVE)
@@ -4129,8 +4212,8 @@ void P_WalkTicker()
         finesine[(walkcamera.angle - ANG90) >> ANGLETOFINESHIFT]);
 
   {
-    subsector_t *subsec = R_PointInSubsector (walkcamera.x, walkcamera.y);
-    walkcamera.z = subsec->sector->floorheight + 41 * FRACUNIT;
+    sector_t *sec = R_PointInSector (walkcamera.x, walkcamera.y);
+    walkcamera.z = sec->floorheight + 41 * FRACUNIT;
   }
 
   G_ResetMotion();
@@ -4158,7 +4241,7 @@ void P_SyncWalkcam(dboolean sync_coords, dboolean sync_sight)
     if (sync_sight)
     {
       walkcamera.angle = players[displayplayer].mo->angle;
-      walkcamera.pitch = P_PlayerPitch(&players[displayplayer]);
+      walkcamera.pitch = dsda_PlayerPitch(&players[displayplayer]);
     }
 
     if(sync_coords)
@@ -4185,6 +4268,10 @@ void G_ContinueDemo(const char *playback_name)
 
 static dboolean InventoryMoveLeft(void)
 {
+    player_t *plr;
+
+    plr = &players[consoleplayer];
+
     if (R_FullView())
     {
         inv_ptr--;
@@ -4192,6 +4279,7 @@ static dboolean InventoryMoveLeft(void)
         {
             inv_ptr = 0;
         }
+        plr->readyArtifact = plr->inventory[inv_ptr].type;
         return true;
     }
 
@@ -4232,6 +4320,7 @@ static dboolean InventoryMoveRight(void)
             if (inv_ptr < 0)
                 inv_ptr = 0;
         }
+        plr->readyArtifact = plr->inventory[inv_ptr].type;
         return true;
     }
 

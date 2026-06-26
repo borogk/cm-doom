@@ -45,9 +45,10 @@ typedef enum {
   dsda_config_demo_smoothturns,
   dsda_config_demo_smoothturnsfactor,
   dsda_config_weapon_attack_alignment,
-  dsda_config_sts_always_red,
+  dsda_config_sts_colored_numbers,
   dsda_config_sts_pct_always_gray,
   dsda_config_sts_traditional_keys,
+  dsda_config_sts_solid_bg_color,
   dsda_config_strict_mode,
   dsda_config_vertmouse,
   dsda_config_freelook,
@@ -62,6 +63,7 @@ typedef enum {
   dsda_config_free_text,
   dsda_config_mute_sfx,
   dsda_config_mute_music,
+  dsda_config_mute_unfocused_window,
   dsda_config_cheat_codes,
   dsda_config_organize_failed_demos,
   dsda_config_script_0,
@@ -89,7 +91,6 @@ typedef enum {
   dsda_config_comperr_passuse,
   dsda_config_comperr_hangsolid,
   dsda_config_comperr_blockmap,
-  dsda_config_comperr_freeaim,
   dsda_config_mapcolor_back,
   dsda_config_mapcolor_grid,
   dsda_config_mapcolor_wall,
@@ -105,7 +106,9 @@ typedef enum {
   dsda_config_mapcolor_tele,
   dsda_config_mapcolor_secr,
   dsda_config_mapcolor_revsecr,
+  dsda_config_mapcolor_tagfinder,
   dsda_config_mapcolor_exit,
+  dsda_config_mapcolor_exitsecr,
   dsda_config_mapcolor_unsn,
   dsda_config_mapcolor_flat,
   dsda_config_mapcolor_sprt,
@@ -115,6 +118,9 @@ typedef enum {
   dsda_config_mapcolor_me,
   dsda_config_mapcolor_enemy,
   dsda_config_mapcolor_frnd,
+  dsda_config_mapcolor_trail_1,
+  dsda_config_mapcolor_trail_2,
+  dsda_config_mapcolor_pickup,
   dsda_config_gl_skymode,
   dsda_config_gl_render_multisampling,
   dsda_config_gl_render_fov,
@@ -189,10 +195,12 @@ typedef enum {
   dsda_config_hud_health_green,
   dsda_config_hud_ammo_red,
   dsda_config_hud_ammo_yellow,
+  dsda_config_playback_mouse_controls,
   dsda_config_cycle_ghost_colors,
   dsda_config_auto_key_frame_interval,
   dsda_config_auto_key_frame_depth,
   dsda_config_auto_key_frame_timeout,
+  dsda_config_auto_save,
   dsda_config_ex_text_scale_x,
   dsda_config_ex_text_ratio_y,
   dsda_config_wipe_at_full_speed,
@@ -208,10 +216,17 @@ typedef enum {
   dsda_config_quickstart_cache_tics,
   dsda_config_death_use_action,
   dsda_config_allow_jumping,
+  dsda_config_always_pistol_start,
+  dsda_config_pistol_start,
+  dsda_config_respawn_monsters,
+  dsda_config_fast_monsters,
+  dsda_config_no_monsters,
+  dsda_config_coop_spawns,
   dsda_config_parallel_sfx_limit,
   dsda_config_parallel_sfx_window,
   dsda_config_movement_toggle_sfx,
   dsda_config_switch_when_ammo_runs_out,
+  dsda_config_switch_weapon_on_pickup,
   dsda_config_viewbob,
   dsda_config_weaponbob,
   dsda_config_quake_intensity,
@@ -221,11 +236,15 @@ typedef enum {
   dsda_config_map_totals,
   dsda_config_map_time,
   dsda_config_map_title,
+  dsda_config_map_trail,
+  dsda_config_map_trail_collisions,
+  dsda_config_map_trail_size,
   dsda_config_automap_overlay,
   dsda_config_automap_rotate,
   dsda_config_automap_follow,
   dsda_config_automap_grid,
   dsda_config_map_grid_size,
+  dsda_config_map_pan_speed,
   dsda_config_map_scroll_speed,
   dsda_config_map_wheel_zoom,
   dsda_config_map_use_multisamling,
@@ -246,6 +265,7 @@ typedef enum {
   dsda_config_usegamma,
   dsda_config_screenblocks,
   dsda_config_sdl_video_window_pos,
+  dsda_config_sdl_video_display_index,
   dsda_config_palette_ondamage,
   dsda_config_palette_onbonus,
   dsda_config_palette_onpowers,
@@ -259,7 +279,10 @@ typedef enum {
   dsda_config_render_patches_scalex,
   dsda_config_render_patches_scaley,
   dsda_config_render_stretchsky,
-  dsda_config_boom_translucent_sprites,
+  dsda_config_render_linearsky,
+  dsda_config_aspect_ratio_correction,
+  dsda_config_translucent_sprites,
+  dsda_config_translucent_ghosts,
   dsda_config_show_alive_monsters,
   dsda_config_left_analog_deadzone,
   dsda_config_right_analog_deadzone,
@@ -273,7 +296,10 @@ typedef enum {
   dsda_config_swap_analogs,
   dsda_config_invert_analog_look,
   dsda_config_ansi_endoom,
+  dsda_config_quit_sounds,
   dsda_config_announce_map,
+  dsda_config_extra_level_brightness,
+  dsda_config_demo_end_quit,
   dsda_config_count,
 } dsda_config_identifier_t;
 
@@ -283,6 +309,7 @@ typedef enum {
 } dsda_config_type_t;
 
 void dsda_UpdateStrictMode(void);
+dboolean dsda_IsStrictConfig(dsda_config_identifier_t id);
 void dsda_TrackConfigFeatures(void);
 void dsda_RevertIntConfig(dsda_config_identifier_t id);
 int dsda_MaxConfigLength(void);
@@ -297,10 +324,8 @@ int dsda_CycleConfig(dsda_config_identifier_t id, dboolean persist);
 int dsda_UpdateIntConfig(dsda_config_identifier_t id, int value, dboolean persist);
 const char* dsda_UpdateStringConfig(dsda_config_identifier_t id, const char* value, dboolean persist);
 int dsda_IntConfig(dsda_config_identifier_t id);
-int dsda_PersistentIntConfig(dsda_config_identifier_t id);
 int dsda_TransientIntConfig(dsda_config_identifier_t id);
 const char* dsda_StringConfig(dsda_config_identifier_t id);
-const char* dsda_PersistentStringConfig(dsda_config_identifier_t id);
 char* dsda_ConfigSummary(const char* name);
 int dsda_ConfigIDByName(const char* name);
 dsda_config_type_t dsda_ConfigType(dsda_config_identifier_t id);

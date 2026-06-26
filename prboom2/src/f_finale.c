@@ -240,6 +240,8 @@ void F_StartFinale (void)
                        (gamemission == pack_plut) ? s_P4TEXT : s_C4TEXT;
         }
         break;
+      case indetermined:
+        break;
     }
   }
 
@@ -285,7 +287,7 @@ float Get_TextSpeed(void)
 // killough 5/10/98: add back v1.9 demo compatibility
 //
 
-static dboolean F_ShowCast(void)
+dboolean F_ShowCast(void)
 {
   return gamemap == 30 ||
          (gamemission == pack_nerve && allow_incompatibility && gamemap == 8) ||
@@ -364,7 +366,7 @@ void F_TextWrite (void)
   if (finalepatch)
   {
     V_ClearBorder();
-    V_DrawNamePatch(0, 0, 0, finalepatch, CR_DEFAULT, VPT_STRETCH);
+    V_DrawNamePatchFS(0, 0, 0, finalepatch, CR_DEFAULT, VPT_STRETCH);
   }
   else
     V_DrawBackground(finaleflat, 0);
@@ -702,7 +704,7 @@ void F_CastDrawer (void)
   V_ClearBorder();
   // erase the entire screen to a background
   // CPhipps - patch drawing updated
-  V_DrawNamePatch(0,0,0, castbackground, CR_DEFAULT, VPT_STRETCH); // Ty 03/30/98 bg texture extern
+  V_DrawNamePatchFS(0,0,0, castbackground, CR_DEFAULT, VPT_STRETCH); // Ty 03/30/98 bg texture extern
 
   F_CastPrint (*(castorder[castnum].name));
 
@@ -740,6 +742,8 @@ static void F_StartScrollMusic(const char* music, dboolean loop_music)
   }
 }
 
+static dboolean end_patches_exist;
+
 void F_StartScroll (const char* right, const char* left, const char* music, dboolean loop_music)
 {
   wipegamestate = -1; // force a wipe
@@ -747,6 +751,14 @@ void F_StartScroll (const char* right, const char* left, const char* music, dboo
   scrollpic2 = left ? left : pfub2;
   finalecount = 0;
   finalestage = 1;
+
+  end_patches_exist = W_CheckNumForName("END0") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END1") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END2") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END3") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END4") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END5") != LUMP_NOT_FOUND &&
+                      W_CheckNumForName("END6") != LUMP_NOT_FOUND;
 
   F_StartScrollMusic(music, loop_music);
 }
@@ -780,20 +792,20 @@ void F_BunnyScroll (void)
   {
     int scrolled = 320 - (finalecount-230)/2;
     if (scrolled <= 0) {
-      V_DrawNamePatch(0, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
+      V_DrawNamePatchFS(0, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
     } else if (scrolled >= 320) {
-      V_DrawNamePatch(p1offset, 0, 0, scrollpic1, CR_DEFAULT, VPT_STRETCH);
+      V_DrawNamePatchFS(p1offset, 0, 0, scrollpic1, CR_DEFAULT, VPT_STRETCH);
       if (p1offset > 0)
-        V_DrawNamePatch(-320, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
+        V_DrawNamePatchFS(-320, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
     } else {
-      V_DrawNamePatch(p1offset + 320 - scrolled, 0, 0, scrollpic1, CR_DEFAULT, VPT_STRETCH);
-      V_DrawNamePatch(-scrolled, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
+      V_DrawNamePatchFS(p1offset + 320 - scrolled, 0, 0, scrollpic1, CR_DEFAULT, VPT_STRETCH);
+      V_DrawNamePatchFS(-scrolled, 0, 0, scrollpic2, CR_DEFAULT, VPT_STRETCH);
     }
     if (p2width == 320)
       V_ClearBorder();
   }
 
-  if (gamemode == commercial)
+  if (!end_patches_exist)
     return;
 
   if (finalecount < 1130)
@@ -815,7 +827,7 @@ void F_BunnyScroll (void)
     laststage = stage;
   }
 
-  sprintf (name,"END%i",stage);
+  snprintf(name, sizeof name, "END%i", stage);
   // CPhipps - patch drawing updated
   V_DrawNamePatch((320-13*8)/2, (200-8*8)/2, 0, name, CR_DEFAULT, VPT_STRETCH);
 }
@@ -850,27 +862,32 @@ void F_Drawer (void)
     F_TextWrite ();
   else
   {
-    // e6y: wide-res
-    V_ClearBorder();
+    const char* finalelump = NULL;
+
+    // Allows use of HELP2 screen for PWADs under DOOM 1
+    dboolean showhelp2 = (gamemode == retail && pwad_help2_check) || gamemode <= registered;
 
     switch (gameepisode)
     {
       // CPhipps - patch drawing updated
       case 1:
-           if ( gamemode == retail || gamemode == commercial )
-             V_DrawNamePatch(0, 0, 0, "CREDIT", CR_DEFAULT, VPT_STRETCH);
-           else
-             V_DrawNamePatch(0, 0, 0, "HELP2", CR_DEFAULT, VPT_STRETCH);
-           break;
+        finalelump = showhelp2 ? "HELP2" : "CREDIT";
+        break;
       case 2:
-           V_DrawNamePatch(0, 0, 0, "VICTORY2", CR_DEFAULT, VPT_STRETCH);
-           break;
+        finalelump = "VICTORY2";
+        break;
       case 3:
-           F_BunnyScroll ();
-           break;
+        F_BunnyScroll ();
+        break;
       case 4:
-           V_DrawNamePatch(0, 0, 0, "ENDPIC", CR_DEFAULT, VPT_STRETCH);
-           break;
+        finalelump = "ENDPIC";
+        break;
+    }
+
+    if (finalelump)
+    {
+      V_ClearBorder(); // e6y: wide-res
+      V_DrawNamePatchFS(0, 0, 0, finalelump, CR_DEFAULT, VPT_STRETCH);
     }
   }
 }

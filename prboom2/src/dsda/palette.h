@@ -43,14 +43,14 @@ typedef struct playpal_data_s {
   // See r_patch.c
   int transparent;
   int duplicate;
-  int black;
-  int white;
+  int darkest;
+  int lightest;
 
   // Array of SDL_Color structs used for setting the 256-colour palette
   SDL_Color* colours;
 } dsda_playpal_t;
 
-double dsda_PaletteEntryLightness(const char *playpal, int i);
+double dsda_PaletteEntryLightness(const byte *playpal, int i);
 dsda_playpal_t* dsda_PlayPalData(void);
 void dsda_CyclePlayPal(void);
 void dsda_SetPlayPal(int index);

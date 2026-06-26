@@ -214,7 +214,9 @@ static dsda_option_t option_list[] = {
   { "mapcolor_tele", NULL, 0, 255, dsda_config_mapcolor_tele },
   { "mapcolor_secr", NULL, 0, 255, dsda_config_mapcolor_secr },
   { "mapcolor_revsecr", NULL, 0, 255, dsda_config_mapcolor_revsecr },
+  { "mapcolor_tagfinder", NULL, 0, 255, dsda_config_mapcolor_tagfinder },
   { "mapcolor_exit", NULL, 0, 255, dsda_config_mapcolor_exit },
+  { "mapcolor_exitsecr", NULL, 0, 255, dsda_config_mapcolor_exitsecr },
   { "mapcolor_unsn", NULL, 0, 255, dsda_config_mapcolor_unsn },
   { "mapcolor_flat", NULL, 0, 255, dsda_config_mapcolor_flat },
   { "mapcolor_sprt", NULL, 0, 255, dsda_config_mapcolor_sprt },
@@ -224,6 +226,7 @@ static dsda_option_t option_list[] = {
   { "mapcolor_hair", NULL, 0, 255, dsda_config_mapcolor_hair },
   { "mapcolor_sngl", NULL, 0, 255, dsda_config_mapcolor_sngl },
   { "mapcolor_me", NULL, 0, 255, dsda_config_mapcolor_me },
+  { "mapcolor_pickup", NULL, 0, 255, dsda_config_mapcolor_pickup },
   { 0 }
 };
 

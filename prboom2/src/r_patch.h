@@ -87,6 +87,8 @@ const rpatch_t *R_PatchByNum(int id);
 
 const rpatch_t *R_TextureCompositePatchByNum(int id);
 
+dboolean R_IsPatchLump(int lumpnum);
+
 // Size query funcs
 int R_NumPatchWidth(int lump) ;
 int R_NumPatchHeight(int lump);
@@ -106,5 +108,8 @@ const rcolumn_t *R_GetPatchColumn(const rpatch_t *patch, int columnIndex);
 void R_InitPatches();
 void R_UpdatePlayPal();
 void R_FlushAllPatches();
+
+extern int playpal_darkest;
+extern int playpal_lightest;
 
 #endif

@@ -44,6 +44,7 @@
 #include "r_main.h"
 #include "am_map.h"
 #include "m_cheat.h"
+#include "m_menu.h"
 #include "s_sound.h"
 #include "sounds.h"
 #include "dstrings.h"
@@ -379,7 +380,7 @@ static int cr_ammo_full;
 
 static void ST_Stop(void);
 
-static void ST_LoadTextColors(void)
+void ST_LoadTextColors(void)
 {
   cr_health_bad = dsda_TextCR(dsda_tc_stbar_health_bad);
   cr_health_warning = dsda_TextCR(dsda_tc_stbar_health_warning);
@@ -403,7 +404,7 @@ void ST_SetScaledWidth(void)
   if (width == 0)
       width = ST_WIDTH;
 
-  switch (render_stretch_hud)
+  switch (stretch_hud(render_stretch_hud))
   {
     case patch_stretch_not_adjusted:
       ST_SCALED_WIDTH  = width * patches_scalex;
@@ -433,7 +434,7 @@ static void ST_refreshBackground(void)
     {
       flags = VPT_ALIGN_BOTTOM;
 
-      V_DrawNumPatch(ST_X, y, BG, stbarbg.lumpnum, CR_DEFAULT, flags);
+      V_DrawNumPatchFS(ST_X, y, BG, stbarbg.lumpnum, CR_DEFAULT, flags);
       if (!deathmatch)
       {
         V_DrawNumPatch(ST_ARMSBGX, y, BG, armsbg.lumpnum, CR_DEFAULT, flags);
@@ -479,6 +480,9 @@ static int ST_calcPainOffset(void)
 //  dead > evil grin > turned head > straight ahead
 //
 
+// [crispy] fix status bar face hysteresis
+static int faceindex;
+
 static void ST_updateFaceWidget(void)
 {
   int         i;
@@ -488,13 +492,19 @@ static void ST_updateFaceWidget(void)
   static int  priority = 0;
   dboolean     doevilgrin;
 
+  // [crispy] fix status bar face hysteresis
+  int		painoffset;
+
+  painoffset = ST_calcPainOffset();
+
   if (priority < 10)
     {
       // dead
       if (!plyr->health)
         {
           priority = 9;
-          st_faceindex = ST_DEADFACE;
+          painoffset = 0;
+          faceindex = ST_DEADFACE;
           st_facecount = 1;
         }
     }
@@ -519,7 +529,7 @@ static void ST_updateFaceWidget(void)
               // evil grin if just picked up weapon
               priority = 8;
               st_facecount = ST_EVILGRINCOUNT;
-              st_faceindex = ST_calcPainOffset() + ST_EVILGRINOFFSET;
+              faceindex = ST_EVILGRINOFFSET;
             }
         }
 
@@ -548,7 +558,7 @@ static void ST_updateFaceWidget(void)
                 priority = 8;
 
               st_facecount = ST_TURNCOUNT;
-              st_faceindex = ST_calcPainOffset() + ST_OUCHOFFSET;
+              faceindex = ST_OUCHOFFSET;
             }
           else
             {
@@ -572,22 +582,21 @@ static void ST_updateFaceWidget(void)
 
 
               st_facecount = ST_TURNCOUNT;
-              st_faceindex = ST_calcPainOffset();
 
               if (diffang < ANG45)
                 {
                   // head-on
-                  st_faceindex += ST_RAMPAGEOFFSET;
+                  faceindex = ST_RAMPAGEOFFSET;
                 }
               else if (i)
                 {
                   // turn face right
-                  st_faceindex += ST_TURNOFFSET;
+                  faceindex = ST_TURNOFFSET;
                 }
               else
                 {
                   // turn face left
-                  st_faceindex += ST_TURNOFFSET+1;
+                  faceindex = ST_TURNOFFSET+1;
                 }
             }
         }
@@ -608,13 +617,13 @@ static void ST_updateFaceWidget(void)
             {
               priority = 7;
               st_facecount = ST_TURNCOUNT;
-              st_faceindex = ST_calcPainOffset() + ST_OUCHOFFSET;
+              faceindex = ST_OUCHOFFSET;
             }
           else
             {
               priority = 6;
               st_facecount = ST_TURNCOUNT;
-              st_faceindex = ST_calcPainOffset() + ST_RAMPAGEOFFSET;
+              faceindex = ST_RAMPAGEOFFSET;
             }
 
         }
@@ -631,7 +640,7 @@ static void ST_updateFaceWidget(void)
           else if (!--lastattackdown)
             {
               priority = 5;
-              st_faceindex = ST_calcPainOffset() + ST_RAMPAGEOFFSET;
+              faceindex = ST_RAMPAGEOFFSET;
               st_facecount = 1;
               lastattackdown = 1;
             }
@@ -649,7 +658,8 @@ static void ST_updateFaceWidget(void)
         {
           priority = 4;
 
-          st_faceindex = ST_GODFACE;
+          painoffset = 0;
+          faceindex = ST_GODFACE;
           st_facecount = 1;
 
         }
@@ -659,13 +669,15 @@ static void ST_updateFaceWidget(void)
   // look left or look right if the facecount has timed out
   if (!st_facecount)
     {
-      st_faceindex = ST_calcPainOffset() + (st_randomnumber % 3);
+      faceindex = st_randomnumber % 3;
       st_facecount = ST_STRAIGHTFACECOUNT;
       priority = 0;
     }
 
   st_facecount--;
 
+  // [crispy] fix status bar face hysteresis
+  st_faceindex = painoffset + faceindex;
 }
 
 int sts_traditional_keys; // killough 2/28/98: traditional status bar keys
@@ -763,7 +775,7 @@ static void ST_doPaletteStuff(void)
       // radiation suit palette is used to tint the screen green,
       // as though the player is being covered in goo by an
       // attacking flemoid.
-      if (gamemission == chex)
+      if (gamemission == tc_chex)
       {
         palette = RADIATIONPAL;
       }
@@ -893,13 +905,12 @@ void ST_Refresh(void)
 void ST_Drawer(dboolean refresh)
 {
   dboolean statusbaron = R_StatusBarVisible();
-  dboolean fullmenu = (menuactive == mnact_full);
 
   V_BeginUIDraw();
 
   if (raven)
   {
-    SB_Drawer(statusbaron, refresh, fullmenu);
+    SB_Drawer(statusbaron, refresh);
     V_EndUIDraw();
     return;
   }
@@ -908,24 +919,22 @@ void ST_Drawer(dboolean refresh)
    * completely by the call from D_Display
    * proff - really do it
    */
-  st_firsttime = st_firsttime || refresh || fullmenu;
+  st_firsttime = st_firsttime || refresh;
 
   ST_doPaletteStuff();  // Do red-/gold-shifts from damage/items
 
   if (statusbaron) {
-    if (st_firsttime || (V_IsOpenGLMode()))
+    if (st_firsttime || (V_IsOpenGLMode() || fadeBG()))
     {
       /* If just after ST_Start(), refresh all */
       st_firsttime = false;
       ST_refreshBackground(); // draw status bar background to off-screen buff
-      if (!fullmenu)
-        ST_drawWidgets(true); // and refresh all widgets
+      ST_drawWidgets(true); // and refresh all widgets
     }
     else
     {
       /* Otherwise, update as little as possible */
-      if (!fullmenu)
-        ST_drawWidgets(false); // update all widgets
+      ST_drawWidgets(false); // update all widgets
     }
   }
 
@@ -949,7 +958,7 @@ static void ST_loadGraphics(void)
   // Load the numbers, tall and short
   for (i=0;i<10;i++)
     {
-      sprintf(namebuf, "STTNUM%d", i);
+      snprintf(namebuf, sizeof(namebuf), "STTNUM%d", i);
       R_SetPatchNum(&tallnum[i],namebuf);
       snprintf(namebuf, sizeof(namebuf), "STYSNUM%d", i);
       R_SetPatchNum(&shortnum[i],namebuf);
@@ -961,7 +970,7 @@ static void ST_loadGraphics(void)
   // key cards
   for (i=0;i<DOOM_NUMCARDS+3;i++)  //jff 2/23/98 show both keys too
     {
-      sprintf(namebuf, "STKEYS%d", i);
+      snprintf(namebuf, sizeof(namebuf), "STKEYS%d", i);
       R_SetPatchNum(&keys[i], namebuf);
     }
 
@@ -975,7 +984,7 @@ static void ST_loadGraphics(void)
   // arms ownership widgets
   for (i=0;i<6;i++)
     {
-      sprintf(namebuf, "STGNUM%d", i+2);
+      snprintf(namebuf, sizeof(namebuf), "STGNUM%d", i+2);
 
       // gray #
       R_SetPatchNum(&arms[i][0], namebuf);
@@ -996,18 +1005,18 @@ static void ST_loadGraphics(void)
       int j;
       for (j=0;j<ST_NUMSTRAIGHTFACES;j++)
         {
-          sprintf(namebuf, "STFST%d%d", i, j);
+          snprintf(namebuf, sizeof(namebuf), "STFST%d%d", i, j);
           R_SetPatchNum(&faces[facenum++], namebuf);
         }
-      sprintf(namebuf, "STFTR%d0", i);        // turn right
+      snprintf(namebuf, sizeof(namebuf), "STFTR%d0", i);        // turn right
       R_SetPatchNum(&faces[facenum++], namebuf);
-      sprintf(namebuf, "STFTL%d0", i);        // turn left
+      snprintf(namebuf, sizeof(namebuf), "STFTL%d0", i);        // turn left
       R_SetPatchNum(&faces[facenum++], namebuf);
-      sprintf(namebuf, "STFOUCH%d", i);       // ouch!
+      snprintf(namebuf, sizeof(namebuf), "STFOUCH%d", i);       // ouch!
       R_SetPatchNum(&faces[facenum++], namebuf);
-      sprintf(namebuf, "STFEVL%d", i);        // evil grin ;)
+      snprintf(namebuf, sizeof(namebuf), "STFEVL%d", i);        // evil grin ;)
       R_SetPatchNum(&faces[facenum++], namebuf);
-      sprintf(namebuf, "STFKILL%d", i);       // pissed off
+      snprintf(namebuf, sizeof(namebuf), "STFKILL%d", i);       // pissed off
       R_SetPatchNum(&faces[facenum++], namebuf);
     }
   R_SetPatchNum(&faces[facenum++], "STFGOD0");
@@ -1030,6 +1039,7 @@ static void ST_initData(void)
 
   st_statusbaron = true;
 
+  faceindex = 0; // [crispy] fix status bar face hysteresis across level changes
   st_faceindex = 0;
   st_palette = -1;
 

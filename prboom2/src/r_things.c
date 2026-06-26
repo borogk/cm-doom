@@ -115,10 +115,12 @@ static int maxframe;
 void R_InitSpritesRes(void)
 {
   if (xtoviewangle) Z_Free(xtoviewangle);
+  if (linearskyangle) Z_Free (linearskyangle);
   if (negonearray) Z_Free(negonearray);
   if (screenheightarray) Z_Free(screenheightarray);
 
   xtoviewangle = Z_Calloc(1, (SCREENWIDTH + 1) * sizeof(*xtoviewangle));
+  linearskyangle = Z_Calloc(1, (SCREENWIDTH + 1) * sizeof(*linearskyangle));
   negonearray = Z_Calloc(1, SCREENWIDTH * sizeof(*negonearray));
   screenheightarray = Z_Calloc(1, SCREENWIDTH * sizeof(*screenheightarray));
 
@@ -448,6 +450,7 @@ int   *mfloorclip;   // dropoff overflow
 int   *mceilingclip; // dropoff overflow
 fixed_t spryscale;
 int64_t sprtopscreen; // R_WiggleFix
+int colheight; // Scaled software fuzz
 
 void R_DrawMaskedColumn(
   const rpatch_t *patch,
@@ -462,6 +465,8 @@ void R_DrawMaskedColumn(
   int64_t     topscreen; // R_WiggleFix
   int64_t     bottomscreen; // R_WiggleFix
   fixed_t basetexturemid = dcvars->texturemid;
+  
+  colheight = 0;
 
   dcvars->texheight = patch->height; // killough 11/98
   for (i=0; i<column->numPosts; i++) {
@@ -498,6 +503,8 @@ void R_DrawMaskedColumn(
           dcvars->drawingmasked = 1; // POPE
           colfunc (dcvars);
           dcvars->drawingmasked = 0; // POPE
+
+          colheight += dcvars->yh - dcvars->yl + 1;
         }
     }
   dcvars->texturemid = basetexturemid;
@@ -560,6 +567,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 
   if (!dcvars.colormap)   // NULL colormap = shadow draw
   {
+    R_ResetFuzzCol(colheight); // Reset fuzz column for new sprite
     colfunc = R_GetDrawColumnFunc(RDC_PIPELINE_FUZZ, RDRAW_FILTER_POINT);    // killough 3/14/98
   }
   else if (vis->color)
@@ -608,6 +616,8 @@ static void R_DrawVisSprite(vissprite_t *vis)
   for (dcvars.x=vis->x1 ; dcvars.x<=vis->x2 ; dcvars.x++, frac += vis->xiscale)
     {
       texturecolumn = frac>>FRACBITS;
+
+      if (!dcvars.colormap) R_CheckFuzzCol(dcvars.x, colheight);
 
       R_DrawMaskedColumn(
         patch,
@@ -922,7 +932,7 @@ void R_AddSprites(subsector_t* subsec, int lightlevel)
 
   // Handle all things in sector.
 
-  if (dsda_ShowAliveMonsters())
+  if (dsda_ShowAliveMonsters() && V_IsOpenGLMode())
   {
     if (dsda_ShowAliveMonsters() == 1)
     {
@@ -971,6 +981,7 @@ void R_AddAllAliveMonstersSprites(void)
 static void R_ApplyWeaponBob (fixed_t *sx, dboolean bobx, fixed_t *sy, dboolean boby)
 {
 	const angle_t angle = (128 * leveltime) & FINEMASK;
+	fixed_t bob = viewplayer->bob * dsda_WeaponBob() / 4;
 
 	if (sx)
 	{
@@ -978,7 +989,7 @@ static void R_ApplyWeaponBob (fixed_t *sx, dboolean bobx, fixed_t *sy, dboolean 
 
 		if (bobx)
 		{
-			 *sx += FixedMul(viewplayer->bob, finecosine[angle]);
+			 *sx += FixedMul(bob, finecosine[angle]);
 		}
 	}
 
@@ -988,7 +999,7 @@ static void R_ApplyWeaponBob (fixed_t *sx, dboolean bobx, fixed_t *sy, dboolean 
 
 		if (boby)
 		{
-			*sy += FixedMul(viewplayer->bob, finesine[angle & (FINEANGLES / 2 - 1)]);
+			*sy += FixedMul(bob, finesine[angle & (FINEANGLES / 2 - 1)]);
 		}
 	}
 }
@@ -1051,34 +1062,25 @@ static void R_DrawPSprite (pspdef_t *psp)
   flip = (dboolean)(sprframe->flip & 1);
 
   {
-    weaponinfo_t *winfo;
-    int state;
-    int weapon_attack_alignment;
+    int weapon_attack_alignment = dsda_IntConfig(dsda_config_weapon_attack_alignment);
 
-    if (hexen)
-    {
-      winfo = &hexen_weaponinfo[viewplayer->readyweapon][viewplayer->pclass];
-    }
-    else
-    {
-      winfo = &weaponinfo[viewplayer->readyweapon];
-    }
+    // [crispy] don't align swiping weapons
+    const dboolean swiping_weapon = hexen && (viewplayer->pclass == PCLASS_FIGHTER ||
+                                             (viewplayer->pclass == PCLASS_CLERIC &&
+                                             viewplayer->readyweapon == wp_first));
 
-    state = viewplayer->psprites[ps_weapon].state - states;
-    weapon_attack_alignment = dsda_IntConfig(dsda_config_weapon_attack_alignment);
-
-    if (!dsda_WeaponBob())
+    if (!dsda_WeaponBob() && !(swiping_weapon && viewplayer->attackdown))
     {
       static fixed_t last_sy = 32 * FRACUNIT;
 
       psp_sx = FRACUNIT;
 
-      if (state != winfo->downstate && state != winfo->upstate)
+      if (psp->state->action != A_Lower && psp->state->action != A_Raise)
       {
         last_sy = psp->sy;
         psp_sy = 32 * FRACUNIT;
       }
-      else if (state == winfo->downstate)
+      else if (psp->state->action == A_Lower)
       {
         // We want to move smoothly from where we were
         psp_sy -= (last_sy - 32 * FRACUNIT);
@@ -1090,10 +1092,20 @@ static void R_DrawPSprite (pspdef_t *psp)
 
       // [crispy] don't center vertically during lowering and raising states
       if (weapon_attack_alignment >= CENTERWEAPON_HORVER &&
-          state != winfo->downstate && state != winfo->upstate)
+          psp->state->action != A_Lower && psp->state->action != A_Raise && !swiping_weapon)
       {
           R_ApplyWeaponBob(NULL, false, &psp_sy, weapon_attack_alignment == CENTERWEAPON_BOB);
       }
+    }
+    else if (psp->state->action == A_WeaponReady && psp->state->tics > 1 && movement_smooth)
+    {
+      // Interpolate bobbing for animated weapons (Chainsaw)
+      R_ApplyWeaponBob(&psp_sx, true, &psp_sy, true);
+    }
+    else if (psp->state->action == A_WeaponReady && dsda_WeaponBob() < 4)
+    {
+      // Always apply Weaponbob when using bobbing increments
+      R_ApplyWeaponBob(&psp_sx, true, &psp_sy, true);
     }
   }
 
@@ -1221,18 +1233,22 @@ static void R_DrawPSprite (pspdef_t *psp)
     psp_inter.x1_prev = vis->x1;
     psp_inter.texturemid_prev = vis->texturemid;
 
-    if (lump == psp_inter.lump)
+    // Do not interpolate on the first tic of the level
+    if (leveltime > 1)
     {
-      int deltax = vis->x2 - vis->x1;
-      vis->x1 = psp_inter.x1 + FixedMul (tic_vars.frac, (vis->x1 - psp_inter.x1));
-      vis->x2 = vis->x1 + deltax;
-      vis->texturemid = psp_inter.texturemid + FixedMul (tic_vars.frac, (vis->texturemid - psp_inter.texturemid));
-    }
-    else
-    {
-      psp_inter.x1 = vis->x1;
-      psp_inter.texturemid = vis->texturemid;
-      psp_inter.lump=lump;
+      if (lump == psp_inter.lump)
+      {
+        int deltax = vis->x2 - vis->x1;
+        vis->x1 = psp_inter.x1 + FixedMul (tic_vars.frac, (vis->x1 - psp_inter.x1));
+        vis->x2 = vis->x1 + deltax;
+        vis->texturemid = psp_inter.texturemid + FixedMul (tic_vars.frac, (vis->texturemid - psp_inter.texturemid));
+      }
+      else
+      {
+        psp_inter.x1 = vis->x1;
+        psp_inter.texturemid = vis->texturemid;
+        psp_inter.lump=lump;
+      }
     }
   }
 

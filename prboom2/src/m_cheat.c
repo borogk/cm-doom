@@ -39,6 +39,7 @@
 #include "p_tick.h"
 #include "m_cheat.h"
 #include "s_sound.h"
+#include "s_advsound.h"
 #include "sounds.h"
 #include "dstrings.h"
 #include "r_main.h"
@@ -74,19 +75,23 @@
 //
 //-----------------------------------------------------------------------------
 
-static void cheat_mus();
+static void cheat_mus(char buf[3]);
 static void cheat_choppers();
 static void cheat_god();
 static void cheat_fa();
 static void cheat_k();
 static void cheat_kfa();
 static void cheat_noclip();
-static void cheat_pw();
+static void cheat_pw(int pw);
 static void cheat_behold();
-static void cheat_clev();
+static void cheat_clev0();
+static void cheat_clev(char buf[3]);
 static void cheat_mypos();
 static void cheat_rate();
-static void cheat_comp();
+static void cheat_comp0();
+static void cheat_comp(char buf[3]);
+static void cheat_skill0();
+static void cheat_skill(char buf[1]);
 static void cheat_friction();
 static void cheat_pushers();
 static void cheat_massacre();
@@ -98,11 +103,11 @@ static void cheat_hom();
 static void cheat_fast();
 static void cheat_tntkey();
 static void cheat_tntkeyx();
-static void cheat_tntkeyxx();
+static void cheat_tntkeyxx(int key);
 static void cheat_tntweap();
-static void cheat_tntweapx();
+static void cheat_tntweapx(char buf[3]);
 static void cheat_tntammo();
-static void cheat_tntammox();
+static void cheat_tntammox(char buf[1]);
 static void cheat_smart();
 static void cheat_pitch();
 static void cheat_megaarmour();
@@ -115,14 +120,14 @@ static void cheat_fly();
 static void cheat_reset_health();
 static void cheat_tome();
 static void cheat_chicken();
-static void cheat_artifact();
+static void cheat_artifact(char buf[3]);
 
 // hexen
 static void cheat_inventory();
 static void cheat_puzzle();
-static void cheat_class();
+static void cheat_class(char buf[2]);
 static void cheat_init();
-static void cheat_script();
+static void cheat_script(char buf[3]);
 
 //-----------------------------------------------------------------------------
 //
@@ -162,10 +167,14 @@ cheatseq_t cheat[] = {
   CHEAT("idbeholdl",  "Lite-Amp Goggles", cht_always, cheat_pw, pw_infrared, false),
   CHEAT("idbehold",   "BEHOLD menu",      cht_always, cheat_behold, 0, false),
   CHEAT("idclev",     "Level Warp",       not_demo | not_menu, cheat_clev, -2, false),
+  CHEAT("idclev",     "Level Warp",       not_demo | not_menu, cheat_clev0, 0, false),
   CHEAT("idmypos",    NULL,               cht_always, cheat_mypos, 0, false),
   CHEAT("idrate",     "Frame rate",       cht_always, cheat_rate, 0, false),
   // phares
   CHEAT("tntcomp",    NULL,               not_demo, cheat_comp, -2, false),
+  CHEAT("tntcomp",    NULL,               not_demo, cheat_comp0, 0, false),
+  CHEAT("skill",      NULL,               not_demo, cheat_skill, -1, false),
+  CHEAT("skill",      NULL,               not_demo, cheat_skill0, 0, false),
   // jff 2/01/98 kill all monsters
   CHEAT("tntem",      NULL,               not_demo, cheat_massacre, 0, false),
   // killough 2/07/98: moved from am_map.c
@@ -251,10 +260,11 @@ cheatseq_t cheat[] = {
 
 //-----------------------------------------------------------------------------
 
-static void cheat_mus(buf)
-char buf[3];
+static void cheat_mus(char buf[3])
 {
-  int musnum;
+  int musnum, muslump;
+  int epsd, map;
+  char *mapname;
 
   //jff 3/20/98 note: this cheat allowed in netgame/demorecord
 
@@ -262,34 +272,40 @@ char buf[3];
   if (!isdigit(buf[0]) || !isdigit(buf[1]))
     return;
 
-  dsda_AddMessage(s_STSTR_MUS);
-
   if (gamemode == commercial)
-    {
-      musnum = mus_runnin + (buf[0]-'0')*10 + buf[1]-'0' - 1;
-
-      //jff 4/11/98 prevent IDMUS00 in DOOMII and IDMUS36 or greater
-      if (musnum < mus_runnin ||  ((buf[0]-'0')*10 + buf[1]-'0') > 35)
-        dsda_AddMessage(s_STSTR_NOMUS);
-      else
-        {
-          S_ChangeMusic(musnum, 1);
-          idmusnum = musnum; //jff 3/17/98 remember idmus number for restore
-        }
-    }
+  {
+    epsd = 1; //jff was 0, but espd is 1-based
+    map = (buf[0] - '0') * 10 + buf[1] - '0';
+  }
   else
-    {
-      musnum = mus_e1m1 + (buf[0]-'1')*9 + (buf[1]-'1');
+  {
+    epsd = buf[0] - '0';
+    map = buf[1] - '0';
+  }
 
-      //jff 4/11/98 prevent IDMUS0x IDMUSx0 in DOOMI and greater than introa
-      if (buf[0] < '1' || buf[1] < '1' || ((buf[0]-'1')*9 + buf[1]-'1') > 31)
-        dsda_AddMessage(s_STSTR_NOMUS);
-      else
-        {
-          S_ChangeMusic(musnum, 1);
-          idmusnum = musnum; //jff 3/17/98 remember idmus number for restore
-        }
+  idmusnum = -1;
+  dsda_MapMusic(&musnum, &muslump, epsd, map);
+  idmusnum = musnum; //jff 3/17/98 remember idmus number for restore
+
+  mapname = VANILLA_MAP_LUMP_NAME(epsd,map);
+
+  if (W_LumpNameExists(mapname))
+  {
+    doom_printf("%s: %s", s_STSTR_MUS, mapname);
+
+    if (muslump != -1)
+    {
+      S_ChangeMusInfoMusic(muslump, true);
     }
+    else if (musnum != -1)
+    {
+      S_ChangeMusic(musnum, 1);
+    }
+  }
+  else
+  {
+    dsda_AddMessage(s_STSTR_NOMUS);
+  }
 }
 
 // 'choppers' invulnerability & chainsaw
@@ -478,6 +494,24 @@ static void cheat_behold()
   dsda_AddMessage(s_STSTR_BEHOLD);
 }
 
+// check 'clev' change-level cheat
+static void cheat_clev0()
+{
+  int epsd, map;
+  char *cur, *next;
+  cur = Z_Strdup(VANILLA_MAP_LUMP_NAME(gameepisode, gamemap));
+
+  dsda_NextMap(&epsd, &map);
+  next = VANILLA_MAP_LUMP_NAME(epsd, map);
+
+  if (W_LumpNameExists(next))
+    doom_printf("Current: %s, next: %s", cur, next);
+  else
+    doom_printf("Current: %s", cur);
+
+  Z_Free(cur);
+}
+
 // 'clev' change-level cheat
 static void cheat_clev(char buf[3])
 {
@@ -514,22 +548,76 @@ static void cheat_rate()
   dsda_ToggleRenderStats();
 }
 
-// compatibility cheat
+// check compatibility cheat
+static void cheat_comp0()
+{
+  if (raven)
+    return doom_printf("Cheat disabled for %s", heretic ? "Heretic" : "Hexen");
 
+  doom_printf("Complevel: %i - %s", compatibility_level, comp_lev_str[compatibility_level]);
+}
+
+// compatibility cheat
 static void cheat_comp(char buf[3])
 {
-  compatibility_level = (buf[0] - '0') * 10 + buf[1] - '0';
+  int compinput = (buf[0] - '0') * 10 + buf[1] - '0';
 
-  if (compatibility_level < 0 ||
-      compatibility_level >= MAX_COMPATIBILITY_LEVEL ||
-      (compatibility_level > 17 && compatibility_level < 21))
+  if (raven) return;
+
+  if (compinput < 0 ||
+      compinput >= MAX_COMPATIBILITY_LEVEL ||
+      (compinput > 17 && compinput < 21))
   {
-    doom_printf("Invalid complevel");
+    return; //doom_printf("Invalid complevel");
   }
   else
   {
+    compatibility_level = compinput;
     G_Compatibility(); // this is missing options checking
-    doom_printf("%s", comp_lev_str[compatibility_level]);
+    doom_printf("New Complevel: %i - %s", compatibility_level, comp_lev_str[compatibility_level]);
+  }
+}
+
+// Get skill strings
+static const char* dsda_skill_str(void)
+{
+  if (hexen)
+  {
+    if (PlayerClass[consoleplayer] == PCLASS_FIGHTER)
+        return hexen_skill_fighter[gameskill];
+    else if (PlayerClass[consoleplayer] == PCLASS_CLERIC)
+        return hexen_skill_cleric[gameskill];
+    else if (PlayerClass[consoleplayer] == PCLASS_MAGE)
+        return hexen_skill_mage[gameskill];
+  }
+
+  return skill_infos[gameskill].name;
+}
+
+// Check skill cheat
+static void cheat_skill0()
+{
+  if (!tc_game)
+    doom_printf("Skill: %i - %s", gameskill + 1, dsda_skill_str());
+  else
+    doom_printf("Skill: %i", gameskill + 1);
+}
+
+// Skill cheat
+static void cheat_skill(char buf[1])
+{
+  int skill = buf[0] - '0';
+
+  if (skill >= 1 && skill <= num_skills)
+  {
+    gameskill = skill - 1;
+
+    if (!tc_game)
+      doom_printf("Next Level Skill: %i - %s", gameskill + 1, dsda_skill_str());
+    else
+      doom_printf("Next Level Skill: %i", gameskill + 1);
+
+    dsda_UpdateGameSkill(gameskill);
   }
 }
 
@@ -746,8 +834,7 @@ static void cheat_tntweap()
   dsda_AddMessage(gamemode == commercial ? "Weapon number 1-9" : "Weapon number 1-8");
 }
 
-static void cheat_tntweapx(buf)
-char buf[3];
+static void cheat_tntweapx(char buf[3])
 {
   int w = *buf - '1';
 
@@ -776,8 +863,7 @@ static void cheat_tntammo()
   dsda_AddMessage("Ammo 1-4, Backpack");
 }
 
-static void cheat_tntammox(buf)
-char buf[1];
+static void cheat_tntammox(char buf[1])
 {
   int a = *buf - '1';
   if (*buf == 'b')  // Ty 03/27/98 - strings *not* externalized

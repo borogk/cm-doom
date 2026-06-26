@@ -3,14 +3,12 @@
 
 // Useful utility functions
 
-#include "config.h"
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-
 #include "rd_util.h"
+
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 void ATTR((noreturn)) die(const char *error, ...)
 {

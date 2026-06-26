@@ -1,9 +1,8 @@
-#cmakedefine PACKAGE_NAME "@PACKAGE_NAME@"
-#cmakedefine PACKAGE_TARNAME "@PACKAGE_TARNAME@"
+#cmakedefine PROJECT_NAME "@PROJECT_NAME@"
+#cmakedefine PROJECT_TARNAME "@PROJECT_TARNAME@"
 #cmakedefine WAD_DATA "@WAD_DATA@"
-#cmakedefine PACKAGE_VERSION "@PACKAGE_VERSION@"
-#cmakedefine PACKAGE_STRING "@PACKAGE_STRING@"
-#cmakedefine PACKAGE_STRING_FULL "@PACKAGE_STRING_FULL@"
+#cmakedefine PROJECT_VERSION "@PROJECT_VERSION@"
+#cmakedefine PROJECT_STRING "@PROJECT_STRING@"
 
 #cmakedefine DOOMWADDIR "@DOOMWADDIR@"
 #cmakedefine DSDA_ABSOLUTE_PWAD_PATH "@DSDA_ABSOLUTE_PWAD_PATH@"
@@ -15,6 +14,7 @@
 #cmakedefine HAVE_CREATE_FILE_MAPPING
 #cmakedefine HAVE_STRSIGNAL
 #cmakedefine HAVE_MKSTEMP
+#cmakedefine HAVE_GETPWUID
 
 #cmakedefine HAVE_SYS_WAIT_H
 #cmakedefine HAVE_UNISTD_H
@@ -22,13 +22,12 @@
 #cmakedefine HAVE_DIRENT_H
 
 #cmakedefine HAVE_LIBSDL2_IMAGE
-#cmakedefine HAVE_LIBSDL2_MIXER
-
 #cmakedefine HAVE_LIBMAD
 #cmakedefine HAVE_LIBFLUIDSYNTH
-#cmakedefine HAVE_LIBDUMB
+#cmakedefine HAVE_LIBXMP
 #cmakedefine HAVE_LIBVORBISFILE
 #cmakedefine HAVE_LIBPORTMIDI
+#cmakedefine HAVE_SNDFILE_MPEG
 
 #cmakedefine SIMPLECHECKS
 

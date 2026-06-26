@@ -27,6 +27,7 @@ The in-game console offers extra tools for advanced users, including adjusting p
 - `player.set_vx <velocity>`
 - `player.set_vy <velocity>`
 - `player.set_vz <velocity>`
+- `player.kill`
 
 #### Miscellaneous
 - `script.run <script>`
@@ -204,6 +205,13 @@ See the [build mode guide](./build_mode.md) for more info.
 - `iddit`
 - `idclev <map>`
 - `idmus <map>`
+- `idbeholdv`
+- `idbeholds`
+- `idbeholdi`
+- `idbeholdr`
+- `idbeholda`
+- `idbeholdl`
+- `skill`
 - `tntcomp`
 - `tntem`
 - `tnthom`

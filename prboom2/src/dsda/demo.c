@@ -46,13 +46,14 @@
 
 #define INITIAL_DEMO_BUFFER_SIZE 0x20000
 
+int demo_tics;
+
 static char* dsda_demo_name_base;
 static byte* dsda_demo_write_buffer;
 static byte* dsda_demo_write_buffer_p;
 static int dsda_demo_write_buffer_length;
 static int dsda_extra_demo_header_data_offset;
 static int largest_real_offset;
-static int demo_tics;
 static int compatibility_level_unspecified;
 
 #define DSDA_UDMF_VERSION 1
@@ -273,15 +274,18 @@ void dsda_InitDemoRecording(void) {
     I_Error("You must specify a compatibility level when recording a demo!\n"
             "Example: dsda-doom -iwad DOOM -complevel 3 -skill 4 -record demo");
 
-  if (!dsda_Flag(dsda_arg_skill))
+  if (!dsda_Flag(dsda_arg_skill) && !dsda_Flag(dsda_arg_recordfromto))
     I_Error("You must specify a skill level when recording a demo!\n"
             "Example: dsda-doom -iwad DOOM -complevel 3 -skill 4 -record demo");
+
+  if (dsda_Flag(dsda_arg_pistol_start))
+    I_Error("The -pistolstart option is not allowed when recording a demo!");
 
   demorecording = true;
 
   // Key settings revert when starting a new attempt
   dsda_RevertIntConfig(dsda_config_vertmouse);
-  dsda_RevertIntConfig(dsda_config_strict_mode);
+  dsda_SetTas(dsda_Flag(dsda_arg_tas) || dsda_Flag(dsda_arg_build) || dsda_Flag(dsda_arg_dsdademo));
 
   // prboom+ has already cached its settings (with demorecording == false)
   // we need to reset things here to satisfy strict mode
@@ -292,7 +296,7 @@ void dsda_InitDemoRecording(void) {
   dsda_TrackConfigFeatures();
 
   if (!demo_key_frame_initialized) {
-    dsda_InitKeyFrame();
+    dsda_InitAutoKeyFrames();
     demo_key_frame_initialized = true;
   }
 
@@ -439,14 +443,14 @@ const byte* dsda_EvaluateDemoStartPoint(const byte* demo_p) {
   return demo_p;
 }
 
-void dsda_GetDemoCheckSum(dsda_cksum_t* cksum, byte* features, byte* demo, size_t demo_size) {
+void dsda_GetDemoCheckSum(dsda_cksum_t* cksum, byte* features, size_t feature_slots, byte* demo, size_t demo_size) {
   struct MD5Context md5;
 
   MD5Init(&md5);
 
   MD5Update(&md5, demo, demo_size);
 
-  MD5Update(&md5, features, FEATURE_SIZE);
+  MD5Update(&md5, features, feature_slots);
 
   MD5Final(cksum->bytes, &md5);
 
@@ -454,11 +458,11 @@ void dsda_GetDemoCheckSum(dsda_cksum_t* cksum, byte* features, byte* demo, size_
 }
 
 void dsda_GetDemoRecordingCheckSum(dsda_cksum_t* cksum) {
-  byte features[FEATURE_SIZE];
+  byte features[FEATURE_SLOTS];
 
   dsda_CopyFeatures(features);
 
-  dsda_GetDemoCheckSum(cksum, features, dsda_demo_write_buffer, dsda_DemoBufferOffset());
+  dsda_GetDemoCheckSum(cksum, features, FEATURE_SLOTS, dsda_demo_write_buffer, dsda_DemoBufferOffset());
 }
 
 static int dsda_ExportDemoToFile(const char* demo_name) {
@@ -508,7 +512,7 @@ static dboolean dsda_UseDemoNameWithTime(void) {
 static char* dsda_DemoNameWithTime(void) {
   char* demo_name;
   char* base_name;
-  int counter = 2;
+  unsigned int counter = 2;
   size_t length;
 
   length = strlen(dsda_demo_name_base) + 16 + 1;
@@ -576,7 +580,7 @@ void dsda_EndDemoRecording(void) {
 void dsda_ExportDemo(const char* name) {
   char* demo_name;
   char* base_name;
-  int counter = 2;
+  unsigned int counter = 2;
   int old_offset;
 
   base_name = Z_Strdup(name);

@@ -22,6 +22,7 @@
 #include "m_file.h"
 #include "lprintf.h"
 #include "e6y.h"
+#include "z_zone.h"
 
 #include "dsda/args.h"
 #include "dsda/demo.h"
@@ -182,20 +183,20 @@ static void dsda_LoadSplits(void) {
 
 void dsda_WriteSplits(void) {
   char* path;
-  byte  buffer[32 * 100];
-  byte* p = buffer;
+  char *buffer = Z_Malloc(22 + 72 * dsda_splits_count);
+  char* p = buffer;
   int i;
 
   if (!attempts)
     return;
-
   path = dsda_SplitTrackerPath();
 
-  p += sprintf(p, "%d %d\n", attempts, SPLIT_VERSION);
+  p += snprintf(p, 22, "%d %d\n", attempts, SPLIT_VERSION);
 
   for (i = 0; i < dsda_splits_count; ++i) {
-    p += sprintf(
-      p, "%i %i %i %i %i %i %i\n",
+    p += snprintf(
+      p, 72,
+      "%i %i %i %i %i %i %i\n",
       dsda_splits[i].episode,
       dsda_splits[i].map,
       dsda_splits[i].leveltime.best,
@@ -208,6 +209,28 @@ void dsda_WriteSplits(void) {
 
   if (!M_WriteFile(path, buffer, p - buffer))
     I_Warn("dsda_WriteSplits: Failed to write splits file \"%s\". (%d)", path, errno);
+
+  Z_Free(buffer);
+}
+
+static void dsda_UpdateReferenceSplits(void) {
+  int i;
+
+  for (i = 0; i < dsda_splits_count; ++i) {
+    dsda_splits[i].leveltime.ref = dsda_splits[i].leveltime.current;
+    dsda_splits[i].totalleveltimes.ref = dsda_splits[i].totalleveltimes.current;
+  }
+}
+
+static int dsda_PersonalBest(void) {
+  dsda_split_time_t* split_single;
+  dsda_split_time_t* split_total;
+
+  split_single = &dsda_splits[dsda_splits_count - 1].leveltime;
+  split_total = &dsda_splits[dsda_splits_count - 1].totalleveltimes;
+
+  return split_total->ref_delta < 0 || split_total->ref == -1 ||
+    (dsda_splits_count == 1 && split_single->ref_delta < 0);
 }
 
 static void dsda_TrackSplitTime(dsda_split_time_t* split_time, int current) {
@@ -251,6 +274,9 @@ void dsda_RecordSplit(void) {
   dsda_splits[i].exits++;
   dsda_TrackSplitTime(&dsda_splits[i].leveltime, leveltime);
   dsda_TrackSplitTime(&dsda_splits[i].totalleveltimes, totalleveltimes);
+
+  if (i == dsda_splits_count - 1 && dsda_PersonalBest())
+    dsda_UpdateReferenceSplits();
 }
 
 dsda_split_t* dsda_CurrentSplit(void) {

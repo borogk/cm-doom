@@ -80,27 +80,12 @@ const byte *colrngs[CR_LIMIT];
 
 int usegamma;
 
-// [FG] translate between blood color value as per EE spec
-//      and actual color translation table index
-
-static const int bloodcolor[] = {
-  0,         // 0 - Red (normal)
-  CR_GRAY,   // 1 - Grey
-  CR_GREEN,  // 2 - Green
-  CR_BLUE,   // 3 - Blue
-  CR_YELLOW, // 4 - Yellow
-  CR_BLACK,  // 5 - Black
-  CR_PURPLE, // 6 - Purple
-  CR_WHITE,  // 7 - White
-  CR_ORANGE, // 8 - Orange
-};
-
 int V_BloodColor(int blood)
 {
-  if (blood < 0 || blood > 8)
-    blood = 0;
+  if (blood < 1 || blood > 8)
+    return 0;
 
-  return bloodcolor[blood];
+  return CR_BLOOD + blood - 1;
 }
 
 // haleyjd: DOSDoom-style single translucency lookup-up table
@@ -277,39 +262,29 @@ static void FUNC_V_CopyRect(int srcscrn, int destscrn,
 
 static void FUNC_V_FillFlat(int lump, int scrn, int x, int y, int width, int height, enum patch_translation_e flags)
 {
-  /* erase the entire screen to a tiled background */
   const byte *data;
-  int sx, sy, w, h;
-  int j, pitch;
+  byte *dest;
+  int sx, sy;
+  int pitch, src_x_offset, src_y_offset;
+  float ratio_x, ratio_y;
+  stretch_param_t* stretch;
 
-  lump += firstflat;
+  stretch = dsda_StretchParams(flags);
+  pitch = screens[scrn].pitch;
+  data = W_LumpByNum(lump + firstflat);
 
-  // killough 4/17/98:
-  data = W_LumpByNum(lump);
+  ratio_x = stretch->video->width / 320.f;
+  ratio_y = stretch->video->height / 200.f;
 
+  for (sy = y; sy < y + height; ++sy)
   {
-    const byte *src, *src_p;
-    byte *dest, *dest_p;
-    pitch = screens[scrn].pitch;
+    src_y_offset = 64 * ((int) (sy / ratio_y) % 64);
+    dest = screens[scrn].data + pitch * sy + x;
 
-    for (sy = y ; sy < y + height; sy += 64)
+    for (sx = x; sx < x + width; ++sx)
     {
-      h = (y + height - sy < 64 ? y + height - sy : 64);
-      dest = screens[scrn].data + pitch * sy + x;
-      src = data + 64 * ((sy - y) % 64);
-      for (sx = x; sx < x + width; sx += 64)
-      {
-        src_p = src;
-        dest_p = dest;
-        w = (x + width - sx < 64 ? x + width - sx : 64);
-        for (j = 0; j < h; j++)
-        {
-          memcpy (dest_p, src_p, w);
-          dest_p += pitch;
-          src_p += 64;
-        }
-        dest += 64;
-      }
+      src_x_offset = (int) ((sx - x) / ratio_x) % 64;
+      *dest++ = data[src_x_offset + src_y_offset];
     }
   }
 }
@@ -338,7 +313,7 @@ static void FUNC_V_FillPatch(int lump, int scrn, int x, int y, int width, int he
  */
 static void FUNC_V_DrawBackground(const char* flatname, int scrn)
 {
-  V_FillFlatName(flatname, scrn, 0, 0, SCREENWIDTH, SCREENHEIGHT, VPT_NONE);
+  V_FillFlatName(flatname, scrn, 0, 0, SCREENWIDTH, SCREENHEIGHT, VPT_STRETCH);
 }
 
 //
@@ -375,14 +350,16 @@ void V_Init (void)
 //  means that their inner loops weren't so well optimised, so merging code may even speed them).
 //
 static void V_DrawMemPatch(int x, int y, int scrn, const rpatch_t *patch,
-        int cm, enum patch_translation_e flags)
+        dboolean center, int cm, enum patch_translation_e flags)
 {
   const byte *trans;
 
   stretch_param_t *params;
 
   if (cm == CR_DEFAULT)
-    trans = NULL;
+    trans = &colormaps[0][0];
+  else if (cm == CR_DARKEN)
+    trans = &colormaps[0][256 * 15];
   else if (cm < CR_LIMIT)
     trans = colrngs[cm];
   else
@@ -405,8 +382,11 @@ static void V_DrawMemPatch(int x, int y, int scrn, const rpatch_t *patch,
     flags &= ~VPT_TRANS;
 
   // [FG] automatically center wide patches without horizontal offset
-  if (patch->width > 320 && patch->leftoffset == 0)
-    x -= (patch->width - 320) / 2;
+  if (center)
+  {
+    if (patch->width > 320 && patch->leftoffset == 0)
+      x -= (patch->width - 320) / 2;
+  }
 
   if (!(flags & VPT_STRETCH_MASK)) {
     int             col;
@@ -611,12 +591,12 @@ static void V_DrawMemPatch(int x, int y, int scrn, const rpatch_t *patch,
         }
 
         if (dcvars.yl < 0) {
-          yoffset = 0-dcvars.yl;
+          yoffset = (0-dcvars.yl) * 200/params->video->height;
           dcvars.yl = 0;
           dcvars.edgeslope &= ~RDRAW_EDGESLOPE_TOP_MASK;
         }
         if (dcvars.yl < top) {
-          yoffset = top-dcvars.yl;
+          yoffset = (top-dcvars.yl) * 200/params->video->height;
           dcvars.yl = top;
           dcvars.edgeslope &= ~RDRAW_EDGESLOPE_TOP_MASK;
         }
@@ -640,6 +620,39 @@ static void V_DrawMemPatch(int x, int y, int scrn, const rpatch_t *patch,
   }
 }
 
+
+//
+// FUNC_V_DrawShaded
+//
+// Adapted from Woof.
+//
+// This uses a dark colormap to create
+// a dark faded background under menus.
+//
+static void FUNC_V_DrawShaded(int scrn, int x, int y, int width, int height, int shade)
+{ 
+  const lighttable_t *darkcolormap;
+  extern dboolean LevelUseFullBright;
+  extern const byte* colormap_lump;
+  byte* dest;
+  int ix, iy;
+
+  // Compensate for Hexen FOGMAP
+  darkcolormap = (hexen && !LevelUseFullBright) ? (const lighttable_t *)colormap_lump : colormaps[scrn];
+
+  for (iy = y; iy < y + height; ++iy)
+  {
+    dest = screens[scrn].data + screens[scrn].pitch * iy + x;
+
+    for (ix = x; ix < x + width; ++ix)
+    {
+      *dest = darkcolormap[shade * 256 + dest[scrn]];
+      dest++;
+    }
+  }
+}
+
+
 // CPhipps - some simple, useful wrappers for that function, for drawing patches from wads
 
 // CPhipps - GNU C only suppresses generating a copy of a function if it is
@@ -647,15 +660,15 @@ static void V_DrawMemPatch(int x, int y, int scrn, const rpatch_t *patch,
 // This inline is _only_ for the function below
 
 static void FUNC_V_DrawNumPatch(int x, int y, int scrn, int lump,
-         int cm, enum patch_translation_e flags)
+         dboolean center, int cm, enum patch_translation_e flags)
 {
-  V_DrawMemPatch(x, y, scrn, R_PatchByNum(lump), cm, flags);
+  V_DrawMemPatch(x, y, scrn, R_PatchByNum(lump), center, cm, flags);
 }
 
 static void FUNC_V_DrawNumPatchPrecise(float x, float y, int scrn, int lump,
-         int cm, enum patch_translation_e flags)
+         dboolean center, int cm, enum patch_translation_e flags)
 {
-  V_DrawMemPatch((int)x, (int)y, scrn, R_PatchByNum(lump), cm, flags);
+  V_DrawMemPatch((int)x, (int)y, scrn, R_PatchByNum(lump), center, cm, flags);
 }
 
 static int currentPaletteIndex = 0;
@@ -729,6 +742,14 @@ static void WRAP_gld_EndAutomapDraw(void)
 {
   gld_EndAutomapDraw();
 }
+static void WRAP_gld_BeginMenuDraw(void)
+{
+  gld_BeginMenuDraw();
+}
+static void WRAP_gld_EndMenuDraw(void)
+{
+  gld_EndMenuDraw();
+}
 static void WRAP_gld_FillRect(int scrn, int x, int y, int width, int height, byte colour)
 {
   gld_FillBlock(x,y,width,height,colour);
@@ -738,7 +759,7 @@ static void WRAP_gld_CopyRect(int srcscrn, int destscrn, int x, int y, int width
 }
 static void WRAP_gld_DrawBackground(const char *flatname, int n)
 {
-  gld_FillFlatName(flatname, 0, 0, SCREENWIDTH, SCREENHEIGHT, VPT_NONE);
+  gld_FillFlatName(flatname, 0, 0, SCREENWIDTH, SCREENHEIGHT, VPT_STRETCH);
 }
 static void WRAP_gld_FillFlat(int lump, int n, int x, int y, int width, int height, enum patch_translation_e flags)
 {
@@ -748,13 +769,13 @@ static void WRAP_gld_FillPatch(int lump, int n, int x, int y, int width, int hei
 {
   gld_FillPatch(lump, x, y, width, height, flags);
 }
-static void WRAP_gld_DrawNumPatch(int x, int y, int scrn, int lump, int cm, enum patch_translation_e flags)
+static void WRAP_gld_DrawNumPatch(int x, int y, int scrn, int lump, dboolean center, int cm, enum patch_translation_e flags)
 {
-  gld_DrawNumPatch(x,y,lump,cm,flags);
+  gld_DrawNumPatch(x,y,lump,center,cm,flags);
 }
-static void WRAP_gld_DrawNumPatchPrecise(float x, float y, int scrn, int lump, int cm, enum patch_translation_e flags)
+static void WRAP_gld_DrawNumPatchPrecise(float x, float y, int scrn, int lump, dboolean center, int cm, enum patch_translation_e flags)
 {
-  gld_DrawNumPatch_f(x,y,lump,cm,flags);
+  gld_DrawNumPatch_f(x,y,lump,center,cm,flags);
 }
 static void V_PlotPixelGL(int scrn, int x, int y, byte color) {
   gld_DrawLine(x-1, y, x+1, y, color);
@@ -767,22 +788,29 @@ static void WRAP_gld_DrawLine(fline_t* fl, int color)
 {
   gld_DrawLine_f(fl->a.fx, fl->a.fy, fl->b.fx, fl->b.fy, color);
 }
+static void WRAP_gld_DrawShaded(int scrn, int x, int y, int width, int height, int shade)
+{
+  gld_DrawShaded(x, y, width, height, shade);
+}
 
 static void NULL_BeginUIDraw(void) {}
 static void NULL_EndUIDraw(void) {}
 static void NULL_BeginAutomapDraw(void) {}
 static void NULL_EndAutomapDraw(void) {}
+static void NULL_BeginMenuDraw(void) {}
+static void NULL_EndMenuDraw(void) {}
 static void NULL_FillRect(int scrn, int x, int y, int width, int height, byte colour) {}
 static void NULL_CopyRect(int srcscrn, int destscrn, int x, int y, int width, int height, enum patch_translation_e flags) {}
 static void NULL_FillFlat(int lump, int n, int x, int y, int width, int height, enum patch_translation_e flags) {}
 static void NULL_FillPatch(int lump, int n, int x, int y, int width, int height, enum patch_translation_e flags) {}
 static void NULL_DrawBackground(const char *flatname, int n) {}
-static void NULL_DrawNumPatch(int x, int y, int scrn, int lump, int cm, enum patch_translation_e flags) {}
-static void NULL_DrawNumPatchPrecise(float x, float y, int scrn, int lump, int cm, enum patch_translation_e flags) {}
+static void NULL_DrawNumPatch(int x, int y, int scrn, int lump, dboolean center, int cm, enum patch_translation_e flags) {}
+static void NULL_DrawNumPatchPrecise(float x, float y, int scrn, int lump, dboolean center, int cm, enum patch_translation_e flags) {}
 static void NULL_PlotPixel(int scrn, int x, int y, byte color) {}
 static void NULL_PlotPixelWu(int scrn, int x, int y, byte color, int weight) {}
 static void NULL_DrawLine(fline_t* fl, int color) {}
 static void NULL_DrawLineWu(fline_t* fl, int color) {}
+static void NULL_DrawShaded(int scrn, int x, int y, int width, int height, int shade) {}
 
 static video_mode_t current_videomode = VID_MODESW;
 
@@ -790,10 +818,12 @@ V_BeginUIDraw_f V_BeginUIDraw = NULL_BeginUIDraw;
 V_EndUIDraw_f V_EndUIDraw = NULL_EndUIDraw;
 V_BeginUIDraw_f V_BeginAutomapDraw = NULL_BeginAutomapDraw;
 V_EndUIDraw_f V_EndAutomapDraw = NULL_EndAutomapDraw;
+V_BeginUIDraw_f V_BeginMenuDraw = NULL_BeginMenuDraw;
+V_EndUIDraw_f V_EndMenuDraw = NULL_EndMenuDraw;
 V_CopyRect_f V_CopyRect = NULL_CopyRect;
 V_FillRect_f V_FillRect = NULL_FillRect;
-V_DrawNumPatch_f V_DrawNumPatch = NULL_DrawNumPatch;
-V_DrawNumPatchPrecise_f V_DrawNumPatchPrecise = NULL_DrawNumPatchPrecise;
+V_DrawNumPatchGen_f V_DrawNumPatchGen = NULL_DrawNumPatch;
+V_DrawNumPatchGenPrecise_f V_DrawNumPatchGenPrecise = NULL_DrawNumPatchPrecise;
 V_FillFlat_f V_FillFlat = NULL_FillFlat;
 V_FillPatch_f V_FillPatch = NULL_FillPatch;
 V_DrawBackground_f V_DrawBackground = NULL_DrawBackground;
@@ -801,6 +831,7 @@ V_PlotPixel_f V_PlotPixel = NULL_PlotPixel;
 V_PlotPixelWu_f V_PlotPixelWu = NULL_PlotPixelWu;
 V_DrawLine_f V_DrawLine = NULL_DrawLine;
 V_DrawLineWu_f V_DrawLineWu = NULL_DrawLineWu;
+V_DrawShaded_f V_DrawShaded = NULL_DrawShaded;
 
 //
 // V_InitMode
@@ -813,10 +844,12 @@ void V_InitMode(video_mode_t mode) {
       V_EndUIDraw = NULL_EndUIDraw; // [XA] ditto for the other begin/ends
       V_BeginAutomapDraw = NULL_BeginAutomapDraw;
       V_EndAutomapDraw = NULL_EndAutomapDraw;
+      V_BeginMenuDraw = NULL_BeginMenuDraw;
+      V_EndMenuDraw = NULL_EndMenuDraw;
       V_CopyRect = FUNC_V_CopyRect;
       V_FillRect = V_FillRect8;
-      V_DrawNumPatch = FUNC_V_DrawNumPatch;
-      V_DrawNumPatchPrecise = FUNC_V_DrawNumPatchPrecise;
+      V_DrawNumPatchGen = FUNC_V_DrawNumPatch;
+      V_DrawNumPatchGenPrecise = FUNC_V_DrawNumPatchPrecise;
       V_FillFlat = FUNC_V_FillFlat;
       V_FillPatch = FUNC_V_FillPatch;
       V_DrawBackground = FUNC_V_DrawBackground;
@@ -824,6 +857,7 @@ void V_InitMode(video_mode_t mode) {
       V_PlotPixelWu = V_PlotPixelWu8;
       V_DrawLine = WRAP_V_DrawLine;
       V_DrawLineWu = WRAP_V_DrawLineWu;
+      V_DrawShaded = FUNC_V_DrawShaded;
       current_videomode = VID_MODESW;
       break;
     case VID_MODEGL:
@@ -832,10 +866,12 @@ void V_InitMode(video_mode_t mode) {
       V_EndUIDraw = WRAP_gld_EndUIDraw;
       V_BeginAutomapDraw = WRAP_gld_BeginAutomapDraw;
       V_EndAutomapDraw = WRAP_gld_EndAutomapDraw;
+      V_BeginMenuDraw = WRAP_gld_BeginMenuDraw;
+      V_EndMenuDraw = WRAP_gld_EndMenuDraw;
       V_CopyRect = WRAP_gld_CopyRect;
       V_FillRect = WRAP_gld_FillRect;
-      V_DrawNumPatch = WRAP_gld_DrawNumPatch;
-      V_DrawNumPatchPrecise = WRAP_gld_DrawNumPatchPrecise;
+      V_DrawNumPatchGen = WRAP_gld_DrawNumPatch;
+      V_DrawNumPatchGenPrecise = WRAP_gld_DrawNumPatchPrecise;
       V_FillFlat = WRAP_gld_FillFlat;
       V_FillPatch = WRAP_gld_FillPatch;
       V_DrawBackground = WRAP_gld_DrawBackground;
@@ -843,6 +879,7 @@ void V_InitMode(video_mode_t mode) {
       V_PlotPixelWu = V_PlotPixelWuGL;
       V_DrawLine = WRAP_gld_DrawLine;
       V_DrawLineWu = WRAP_gld_DrawLine;
+      V_DrawShaded = WRAP_gld_DrawShaded;
       current_videomode = VID_MODEGL;
       break;
   }
@@ -862,6 +899,10 @@ dboolean V_IsUILightmodeIndexed(void) {
 
 dboolean V_IsAutomapLightmodeIndexed(void) {
   return gl_automap_lightmode_indexed;
+}
+
+dboolean V_IsMenuLightmodeIndexed(void) {
+  return gl_menu_lightmode_indexed;
 }
 
 void V_CopyScreen(int srcscrn, int destscrn)
@@ -1163,6 +1204,66 @@ int V_GetPlaypalCount(void)
   return (dsda_PlayPalData()->length / PALETTE_SIZE);
 }
 
+//
+// V_GetPatchColor
+// Get the color of a Doom-Format
+// graphic via lumpnum
+//
+
+SDL_Color V_GetPatchColor (int lumpnum)
+{
+  SDL_Color col = {0,0,0,0};
+  int r = 0, g = 0, b = 0;
+  const unsigned char *playpal = V_GetPlaypal();
+  int x, y, pixel_cnt = 0;
+  const byte* lump;
+  short width;
+
+  lump = W_LumpByNum(lumpnum);
+
+  width = *((const int16_t *) lump);
+  width = LittleShort(width);
+
+  for (x = 0; x < width; ++x) {
+    byte length;
+    byte entry;
+    const byte* p;
+    int32_t offset;
+
+    // Only calculate for the leftmost and rightmost 16 columns
+    if (width > 32 && x > 16 && x < width - 16)
+      continue;
+
+    // Skip irrelevant data in the doom patch header
+    p = lump + 8 + 4 * x;
+    offset = *((const int32_t *) p);
+    p = lump + LittleLong(offset);
+
+    while (*p != 0xff) {
+      p++;
+      length = *p++;
+      p++;
+
+      // Get RGB values per pixel
+      for (y = 0; y < length; ++y) {
+        entry = *p++;
+        r += playpal[3 * entry + 0];
+        g += playpal[3 * entry + 1];
+        b += playpal[3 * entry + 2];
+        pixel_cnt++;
+      }
+      p++;
+    }
+  }
+
+  // Average RGB values
+  col.r = r / pixel_cnt;
+  col.g = g / pixel_cnt;
+  col.b = b / pixel_cnt;
+
+  return col;
+}
+
 void V_ClearBorder(void)
 {
   int bordtop, bordbottom, bordleft, bordright;
@@ -1232,7 +1333,7 @@ void SetRatio(int width, int height)
   // The terms storage aspect ratio, pixel aspect ratio, and display aspect
   // ratio came from Wikipedia.  SAR x PAR = DAR
   lprintf(LO_DEBUG, "SetRatio: storage aspect ratio %u:%u\n", ratio_multiplier, ratio_scale);
-  if (height == 200 || height == 400)
+  if (height == 200 || height == 400 || !dsda_IntConfig(dsda_config_aspect_ratio_correction))
   {
     lprintf(LO_DEBUG, "SetRatio: recognized VGA mode with pixel aspect ratio 5:6\n");
     ratio_multiplier = width * 5;
@@ -1298,9 +1399,12 @@ void SetRatio(int width, int height)
   tallscreen = (ratio_scale < ratio_multiplier);
   if (tallscreen)
   {
+    float ratio_quotient = (float)ratio_multiplier/ratio_scale;
+    float ratio_percentage = (ratio_quotient - 1) * 100.0;
+    psprite_offset = (int)(ratio_percentage*FRACUNIT);
+
     lprintf(LO_DEBUG, "SetRatio: tallscreen aspect recognized; flipping multiplier\n");
     swap(&ratio_multiplier, &ratio_scale);
-    psprite_offset = (int)(6.5*FRACUNIT);
   }
   else
   {
@@ -1428,8 +1532,6 @@ int V_FillHeightVPT(int scrn, int y, int height, byte color, enum patch_translat
 
 // heretic
 
-#define HERETIC_RAW_SCREEN_SIZE 64000
-
 // heretic_note: is something already implemented to handle this?
 void V_DrawRawScreen(const char *lump_name)
 {
@@ -1439,9 +1541,11 @@ void V_DrawRawScreen(const char *lump_name)
 void V_DrawRawScreenSection(const char *lump_name, int source_offset, int dest_y_offset, int dest_y_limit)
 {
   int i, j;
-  float x_factor, y_factor;
+  float x_factor = 0, y_factor = 0;
   int x_offset, y_offset;
   const byte* raw;
+  int lump_num = W_CheckNumForName(lump_name);
+  int lump_width = W_LumpLength(lump_num) / 200;
 
   // e6y: wide-res
   // NOTE: the size isn't quite right on all resolutions,
@@ -1451,47 +1555,62 @@ void V_DrawRawScreenSection(const char *lump_name, int source_offset, int dest_y
   V_ClearBorder();
 
   // custom widescreen assets are a different format
+  if (R_IsPatchLump(lump_num))
   {
-    int lump;
-
-    lump = W_CheckNumForName(lump_name);
-    if (W_LumpLength(lump) != HERETIC_RAW_SCREEN_SIZE)
-    {
-      V_DrawNamePatch(0, 0, 0, lump_name, CR_DEFAULT, VPT_STRETCH);
-      return;
-    }
+    V_DrawNamePatchFS(0, 0, 0, lump_name, CR_DEFAULT, VPT_STRETCH);
+    return;
   }
 
-  x_factor = (float)SCREENWIDTH / 320;
-  y_factor = (float)SCREENHEIGHT / 200;
+  // aspect ratio correction
+  switch (render_stretch_hud) {
+    case patch_stretch_not_adjusted:
+      x_factor = (float)SCREENWIDTH / 320;
+      y_factor = (float)SCREENHEIGHT / 200;
+      if (y_factor < x_factor)
+        x_factor = y_factor;
+      break;
+    case patch_stretch_doom_format:
+      x_factor = (float)WIDE_SCREENWIDTH / 320;
+      y_factor = (float)WIDE_SCREENHEIGHT / 200;
+      if (y_factor < x_factor)
+        x_factor = y_factor;
+      break;
+    case patch_stretch_fit_to_width:
+      x_factor = (float)SCREENWIDTH / 320;
+      y_factor = (float)SCREENHEIGHT / 200;
+      break;
+  }
 
-  if (y_factor < x_factor)
-    x_factor = y_factor;
-
-  x_offset = (int)((SCREENWIDTH - (x_factor * 320)) / 2);
-  y_offset = (int)((dest_y_offset * y_factor) - (source_offset * y_factor / 320));
+  x_offset = (int)((SCREENWIDTH - (x_factor * lump_width)) / 2);
+  y_offset = (int)((dest_y_offset * y_factor) - (source_offset * y_factor / lump_width));
 
   // TODO: create a V_FillRaw alias and call that instead of the gld_ func directly,
   // though that means there needs to be a software version too (that's ideally a
   // bit more efficient than the current code's thousands-of-little-boxes approach)
   if (V_IsOpenGLMode()) {
-    gld_FillRawName(lump_name, x_offset, y_offset, 320, 200, 320 * x_factor, 200 * y_factor, VPT_STRETCH_REAL);
+    gld_FillRawName(lump_name, x_offset, y_offset, lump_width, 200, lump_width * x_factor, 200 * y_factor, VPT_STRETCH_REAL);
     return;
   }
 
   raw = (const byte *)W_LumpByName(lump_name) + source_offset;
 
   for (j = dest_y_offset; j < dest_y_offset + dest_y_limit; ++j)
-    for (i = 0; i < 320; ++i, ++raw)
+    for (i = 0; i < lump_width; ++i, ++raw)
     {
-      int x, y, width, height;
+      int x, y, width, height, x_pos;
 
       x = (int)(i * x_factor);
       y = (int)(j * y_factor);
       width = (int)((i + 1) * x_factor) - x;
       height = (int)((j + 1) * y_factor) - y;
 
-      V_FillRect(0, x_offset + x, y, width, height, *raw);
+      x_pos = x_offset + x;
+
+      // Don't draw pixels outside screen
+      if ((x_pos < 0) || (x_pos > SCREENWIDTH - width))
+        continue;
+      
+      V_FillRect(0, x_pos, y, width, height, *raw);
     }
 }
 

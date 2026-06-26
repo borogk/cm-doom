@@ -93,6 +93,7 @@
 #include "dsda/data_organizer.h"
 #include "dsda/map_format.h"
 #include "dsda/mapinfo.h"
+#include "dsda/gameinfo.h"
 #include "dsda/mobjinfo.h"
 #include "dsda/options.h"
 #include "dsda/pause.h"
@@ -124,6 +125,10 @@
 
 static void D_PageDrawer(void);
 
+char* iwadlump;
+char* iwadver;
+int EpisodeStructure = false;
+
 // jff 1/24/98 add new versions of these variables to remember command line
 dboolean clnomonsters;   // checkparm of -nomonsters
 dboolean clrespawnparm;  // checkparm of -respawn
@@ -133,6 +138,8 @@ dboolean clfastparm;     // checkparm of -fast
 dboolean nomonsters;     // working -nomonsters
 dboolean respawnparm;    // working -respawn
 dboolean fastparm;       // working -fast
+
+dboolean pistolstart;
 
 dboolean randomclass;
 
@@ -170,18 +177,42 @@ const char *const standard_iwads[]=
   "freedoom1.wad",
   "freedm.wad",
 
-  "hacx.wad",
   "chex.wad",
+  "chex3v.wad",
+  "chex3d2.wad",
+
+  "hacx.wad",
   "rekkrsa.wad",
 
   "bfgdoom2.wad",
   "bfgdoom.wad",
 
   "heretic.wad",
-  "hexen.wad"
+  "hexen.wad",
+
+  "heretic1.wad"
 };
+
+// list of episode-formatted IWAD names
+const char *const episode_iwads[]=
+{
+  "doom.wad",
+  "doom1.wad",
+  "doomu.wad", /* CPhipps - alow doomu.wad */
+
+  "freedoom1.wad",
+
+  "chex.wad",
+  "rekkrsa.wad",
+
+  "heretic.wad",
+
+  "heretic1.wad"
+};
+
 //e6y static
 const int nstandard_iwads = sizeof standard_iwads/sizeof*standard_iwads;
+const int nepisode_iwads = sizeof episode_iwads/sizeof*episode_iwads;
 
 /*
  * D_PostEvent - Event handling
@@ -204,16 +235,14 @@ void D_PostEvent(event_t *ev)
       // Immediate exit if quit key is pressed in skip mode
       I_SafeExit(0);
     }
-    else
+    else if ( dsda_InputActivated(dsda_input_menu_escape))
     {
-      // use key is used for seeing the current frame
-      if (
-        !dsda_InputActivated(dsda_input_use) && !dsda_InputActivated(dsda_input_demo_skip) &&
-        (ev->type == ev_keydown || ev->type == ev_keyup) // is this condition important?
-      )
-      {
-        return;
-      }
+      dsda_ExitSkipMode();
+    }
+    // use key is used for seeing the current frame
+    else if (!dsda_InputActivated(dsda_input_use) && !dsda_InputActivated(dsda_input_demo_skip))
+    {
+      return;
     }
   }
 
@@ -347,7 +376,7 @@ void D_Display (fixed_t frac)
 {
   static dboolean isborderstate        = false;
   static dboolean borderwillneedredraw = false;
-  static gamestate_t oldgamestate = -1;
+  static gamestate_t oldgamestate = GS_DEFAULT;
   dboolean wipe;
   dboolean viewactive = false, isborder = false;
 
@@ -374,7 +403,7 @@ void D_Display (fixed_t frac)
 
   if (setsizeneeded) {               // change the view size if needed
     R_ExecuteSetViewSize();
-    oldgamestate = -1;            // force background redraw
+    oldgamestate = GS_DEFAULT;            // force background redraw
   }
 
   if (V_IsOpenGLMode() && !exclusive_fullscreen && !nodrawers)
@@ -389,7 +418,7 @@ void D_Display (fixed_t frac)
 
   if (gamestate != GS_LEVEL) { // Not a level
     switch (oldgamestate) {
-    case -1:
+    case GS_DEFAULT:
     case GS_LEVEL:
       V_SetPalette(0); // cph - use default (basic) palette
     default:
@@ -498,6 +527,11 @@ void D_Display (fixed_t frac)
   if (dsda_Paused() && (menuactive != mnact_full)) {
     D_DrawPause();
   }
+
+  V_BeginMenuDraw();
+  if (M_MenuIsShaded())
+    M_ShadedScreen(0);
+  V_EndMenuDraw();
 
   // menus go directly to the screen
   M_Drawer();          // menu is drawn even on top of everything
@@ -612,6 +646,7 @@ static int  demosequence;         // killough 5/2/98: made static
 static int  pagetic;
 static const char *pagename; // CPhipps - const
 dboolean bfgedition = 0;
+dboolean freedm = 0;
 
 //
 // D_PageTicker
@@ -621,6 +656,18 @@ void D_PageTicker(void)
 {
   if (--pagetic < 0)
     D_AdvanceDemo();
+}
+
+// Check whether to skip IWAD Demos
+static int dsda_SkipIwadDemos(void)
+{
+  int pwaddemo = W_PWADLumpNameExists("DEMO1");
+  int pwadmaps = W_PWADMapExists();
+
+  if ((pwadmaps && !pwaddemo) || lumpinfo[W_CheckNumForName("DEMO1")].size == 0)
+    return true;
+  
+  return false;
 }
 
 //
@@ -638,6 +685,10 @@ static void D_PageDrawer(void)
     return;
   }
 
+  // Allows use of PWAD HELP2 screen in demosequence
+  if (demosequence == 4 && pwad_help2_check)
+    pagename = "HELP2";
+
   // proff/nicolas 09/14/98 -- now stretchs bitmaps to fullscreen!
   // CPhipps - updated for new patch drawing
   // proff - added M_DrawCredits
@@ -645,10 +696,12 @@ static void D_PageDrawer(void)
   {
     // e6y: wide-res
     V_ClearBorder();
-    V_DrawNamePatch(0, 0, 0, pagename, CR_DEFAULT, VPT_STRETCH);
+    V_DrawNamePatchFS(0, 0, 0, pagename, CR_DEFAULT, VPT_STRETCH);
   }
-  else
+  else if (dsda_SkipIwadDemos() && W_PWADLumpNameExists("CREDIT"))
     M_DrawCredits();
+  else
+    M_DrawCreditsDynamic();
 }
 
 //
@@ -791,6 +844,17 @@ void D_DoAdvanceDemo(void)
   if (demosequence == 6 && gamemode == commercial && !W_LumpNameExists("demo4"))
     demosequence = 0;
 
+  if (dsda_SkipIwadDemos())
+  {
+    // Skip blank / IWAD demos in PWADs
+    if (demostates[demosequence][gamemode].func == G_DeferedPlayDemo)
+      demosequence++;
+
+    // Limit to just TITLEPIC / CREDIT
+    if (demosequence > (raven ? 3 : 2))
+      demosequence = 0;
+  }
+
   demostates[demosequence][gamemode].func(demostates[demosequence][gamemode].name);
 }
 
@@ -816,7 +880,6 @@ void D_StartTitle (void)
 //         - modified to allocate & use new wadfiles array
 void D_AddFile (const char *file, wad_source_t source)
 {
-  char *gwa_filename=NULL;
   int len;
 
   // There can only be one iwad source!
@@ -841,20 +904,6 @@ void D_AddFile (const char *file, wad_source_t source)
     gamemission = pack_nerve;
 
   numwadfiles++;
-  // proff: automatically try to add the gwa files
-  // proff - moved from w_wad.c
-  gwa_filename=AddDefaultExtension(strcpy(Z_Malloc(strlen(file)+5), file), ".wad");
-  if (dsda_HasFileExt(gwa_filename, ".wad"))
-  {
-    char *ext;
-    ext = &gwa_filename[strlen(gwa_filename)-4];
-    ext[1] = 'g'; ext[2] = 'w'; ext[3] = 'a';
-    wadfiles = Z_Realloc(wadfiles, sizeof(*wadfiles)*(numwadfiles+1));
-    wadfiles[numwadfiles].name = gwa_filename;
-    wadfiles[numwadfiles].src = source_pwad; // Ty 08/29/98
-    wadfiles[numwadfiles].handle = 0;
-    numwadfiles++;
-  }
 }
 
 // killough 10/98: support -dehout filename
@@ -888,6 +937,9 @@ void CheckIWAD(const char *iwadname,GameMode_t *gmode,dboolean *hassec)
   if (M_ReadAccess(iwadname))
   {
     int ud=0,rg=0,sw=0,cm=0,sc=0,hx=0;
+    dboolean dmenupic = false;
+    dboolean large_titlepic = false;
+    dboolean freedm_lmp = false;
     FILE* fp;
 
     // Identify IWAD correctly
@@ -947,9 +999,13 @@ void CheckIWAD(const char *iwadname,GameMode_t *gmode,dboolean *hassec)
           }
 
           if (!strncmp(fileinfo[length].name,"DMENUPIC",8))
-            bfgedition++;
+            dmenupic = true;
+          if (!strncmp(fileinfo[length].name,"TITLEPIC",8) && fileinfo[length].size > 68168)
+            large_titlepic = true;
           if (!strncmp(fileinfo[length].name,"HACX",4))
             hx++;
+          if (!strncmp(fileinfo[length].name,"FREEDM",6))
+            freedm_lmp = true;
         }
         Z_Free(fileinfo);
 
@@ -959,6 +1015,12 @@ void CheckIWAD(const char *iwadname,GameMode_t *gmode,dboolean *hassec)
     }
     else // error from open call
       I_Error("CheckIWAD: Can't open IWAD %s", iwadname);
+
+    // unity iwad has dmenupic and a large titlepic
+    if (dmenupic && !large_titlepic)
+      bfgedition++;
+    if (freedm_lmp)
+      freedm++;
 
     // Determine game mode from levels present
     // Must be a full set for whichever mode is present
@@ -1016,6 +1078,14 @@ void AddIWAD(const char *iwad)
     haswolflevels = false;
   }
 
+  if (i >= 12 && !strnicmp(iwad + i - 12, "heretic1.wad", 12))
+  {
+    if (!dsda_Flag(dsda_arg_heretic))
+      dsda_UpdateFlag(dsda_arg_heretic, true);
+
+    gamemode = shareware;
+  }
+
   switch(gamemode)
   {
     case retail:
@@ -1023,7 +1093,13 @@ void AddIWAD(const char *iwad)
     case shareware:
       gamemission = doom;
       if (i>=8 && !strnicmp(iwad+i-8,"chex.wad",8))
-        gamemission = chex;
+        gamemission = tc_chex;
+      else if (i>=10 && !strnicmp(iwad+i-10,"chex3v.wad",10))
+        gamemission = tc_chex3v;
+      else if (i>=11 && !strnicmp(iwad+i-11,"rekkrsa.wad",11))
+        gamemission = tc_rekkr;
+      else if (i>=13 && !strnicmp(iwad+i-13,"freedoom1.wad",13))
+        gamemission = tc_freedoom;
       break;
     case commercial:
       gamemission = doom2;
@@ -1033,8 +1109,13 @@ void AddIWAD(const char *iwad)
         gamemission = pack_tnt;
       else if (i>=12 && !strnicmp(iwad+i-12,"plutonia.wad",12))
         gamemission = pack_plut;
+      else if (i>=11 && !strnicmp(iwad+i-11,"chex3d2.wad",11))
+        gamemission = tc_chex3v;
       else if (i>=8 && !strnicmp(iwad+i-8,"hacx.wad",8))
-        gamemission = hacx;
+        gamemission = tc_hacx;
+      else if ((i>=13 && !strnicmp(iwad+i-13,"freedoom2.wad",13))
+            || (i>=10 && !strnicmp(iwad+i-10,"freedm.wad",10)))
+        gamemission = tc_freedoom;
       break;
     default:
       gamemission = none;
@@ -1043,6 +1124,10 @@ void AddIWAD(const char *iwad)
   if (gamemode == indetermined)
     //jff 9/3/98 use logical output routine
     lprintf(LO_WARN,"Unknown Game Version, may not work\n");
+
+  // Set up TC game logic
+  tc_game = (gamemission > pack_nerve);
+
   D_AddFile(iwad,source_iwad);
 }
 
@@ -1060,7 +1145,7 @@ static inline dboolean CheckExeSuffix(const char *suffix)
   char *dash;
 
   if ((dash = strrchr(dsda_argv[0], '-')))
-    if (!stricmp(dash, suffix))
+    if (!strnicmp(dash, suffix, strlen(suffix)))
       return true;
 
   return false;
@@ -1071,6 +1156,18 @@ static char *FindIWADFile(void)
   int   i;
   dsda_arg_t* arg;
   char  * iwad  = NULL;
+  int iwadnum = EpisodeStructure ? nepisode_iwads : nstandard_iwads;
+
+  if (CheckExeSuffix("-heretic"))
+  {
+    if (!dsda_Flag(dsda_arg_heretic))
+      dsda_UpdateFlag(dsda_arg_heretic, true);
+  }
+  else if (CheckExeSuffix("-hexen"))
+  {
+    if (!dsda_Flag(dsda_arg_hexen))
+      dsda_UpdateFlag(dsda_arg_hexen, true);
+  }
 
   arg = dsda_Arg(dsda_arg_iwad);
   if (arg->found)
@@ -1079,13 +1176,16 @@ static char *FindIWADFile(void)
   }
   else
   {
-    if (dsda_Flag(dsda_arg_heretic) || CheckExeSuffix("-heretic"))
+    if (dsda_Flag(dsda_arg_heretic))
       return I_FindWad("heretic.wad");
-    else if (dsda_Flag(dsda_arg_hexen) || CheckExeSuffix("-hexen"))
+    else if (dsda_Flag(dsda_arg_hexen))
       return I_FindWad("hexen.wad");
 
-    for (i=0; !iwad && i<nstandard_iwads; i++)
-      iwad = I_FindWad(standard_iwads[i]);
+    if (iwadlump != NULL)
+      return I_FindWad(iwadlump);
+
+    for (i=0; !iwad && i<iwadnum; i++)
+      iwad = EpisodeStructure ? I_FindWad(episode_iwads[i]) : I_FindWad(standard_iwads[i]);
   }
   return iwad;
 }
@@ -1109,48 +1209,6 @@ static dboolean FileMatchesIWAD(const char *name)
   }
 
   return false;
-}
-
-//
-// IdentifyVersion
-//
-// Set the location of the defaults file and the savegame root
-// Locate and validate an IWAD file
-// Determine gamemode from the IWAD
-//
-// supports IWADs with custom names. Also allows the -iwad parameter to
-// specify which iwad is being searched for if several exist in one dir.
-// The -iwad parm may specify:
-//
-// 1) a specific pathname, which must exist (.wad optional)
-// 2) or a directory, which must contain a standard IWAD,
-// 3) or a filename, which must be found in one of the standard places:
-//   a) current dir,
-//   b) exe dir
-//   c) $DOOMWADDIR
-//   d) or $HOME
-//
-// jff 4/19/98 rewritten to use a more advanced search algorithm
-
-static void IdentifyVersion (void)
-{
-  char *iwad;
-
-  // why is this here?
-  dsda_InitDataDir();
-  dsda_InitSaveDir();
-
-  // locate the IWAD and determine game mode from it
-
-  iwad = FindIWADFile();
-
-  if (iwad && *iwad)
-  {
-    AddIWAD(iwad);
-    Z_Free(iwad);
-  }
-  else
-    I_Error("IdentifyVersion: IWAD not found\n");
 }
 
 //
@@ -1236,10 +1294,10 @@ static char *GetAutoloadDir(const char *iwadname, dboolean createdir)
 
     if (autoload_path == NULL)
     {
-        const char* exedir = I_DoomExeDir();
-        len = snprintf(NULL, 0, "%s/autoload", exedir);
+        const char* configdir = I_ConfigDir();
+        len = snprintf(NULL, 0, "%s/autoload", configdir);
         autoload_path = Z_Malloc(len+1);
-        snprintf(autoload_path, len+1, "%s/autoload", exedir);
+        snprintf(autoload_path, len+1, "%s/autoload", configdir);
     }
 
     M_MakeDir(autoload_path, false);
@@ -1382,6 +1440,21 @@ static void D_AddZip(const char* zipped_file_name, wad_source_t source, deh_queu
   temporary_directory = dsda_UnzipFile(full_zip_path);
 
   LoadWADsAtPath(temporary_directory, source);
+  if (MainLumpCache)
+     LoadDehackedFilesAtPath(temporary_directory, true, deh_queue);
+
+  Z_Free(full_zip_path);
+}
+
+static void D_AddUnzippedFile(const char* zipped_file_name, wad_source_t source, deh_queue_t *deh_queue)
+{
+  char* full_zip_path;
+  const char* temporary_directory;
+
+  full_zip_path = I_RequireZip(zipped_file_name);
+  temporary_directory = dsda_ReadUnzippedFile(full_zip_path);
+
+  LoadWADsAtPath(temporary_directory, source);
   LoadDehackedFilesAtPath(temporary_directory, true, deh_queue);
 
   Z_Free(full_zip_path);
@@ -1411,7 +1484,11 @@ static const char *D_AutoLoadGameBase()
 {
   return hexen ? "hexen-all" :
          heretic ? "heretic-all" :
-         "doom-all";
+         (gamemission == tc_chex ||
+         gamemission == tc_chex3v) ? "chex-all" :
+         (gamemission == tc_freedoom) ? "freedoom-all" :
+         !tc_game ? "doom-all":
+         NULL;
 }
 
 #define ALL_AUTOLOAD "all-all"
@@ -1428,11 +1505,14 @@ void D_AutoloadIWadDir()
   LoadZIPsAtPath(autoload_dir, source_auto_load, &autoload_deh_all_queue);
   Z_Free(autoload_dir);
 
-  // common auto-loaded files for the game
-  autoload_dir = GetAutoloadDir(D_AutoLoadGameBase(), true);
-  LoadWADsAtPath(autoload_dir, source_auto_load);
-  LoadZIPsAtPath(autoload_dir, source_auto_load, &autoload_deh_game_queue);
-  Z_Free(autoload_dir);
+  if (D_AutoLoadGameBase())
+  {
+    // common auto-loaded files for the game
+    autoload_dir = GetAutoloadDir(D_AutoLoadGameBase(), true);
+    LoadWADsAtPath(autoload_dir, source_auto_load);
+    LoadZIPsAtPath(autoload_dir, source_auto_load, &autoload_deh_game_queue);
+    Z_Free(autoload_dir);
+  }
 
   // auto-loaded files per IWAD
   autoload_dir = GetAutoloadDir(IWADBaseName(), true);
@@ -1471,11 +1551,14 @@ static void D_AutoloadDehIWadDir()
   D_ProcessDehAutoloadQueue(&autoload_deh_all_queue);
   Z_Free(autoload_dir);
 
-  // common auto-loaded files for the game
-  autoload_dir = GetAutoloadDir(D_AutoLoadGameBase(), true);
-  LoadDehackedFilesAtPath(autoload_dir, false, NULL);
-  D_ProcessDehAutoloadQueue(&autoload_deh_game_queue);
-  Z_Free(autoload_dir);
+  if (D_AutoLoadGameBase())
+  {
+    // common auto-loaded files for the game
+    autoload_dir = GetAutoloadDir(D_AutoLoadGameBase(), true);
+    LoadDehackedFilesAtPath(autoload_dir, false, NULL);
+    D_ProcessDehAutoloadQueue(&autoload_deh_game_queue);
+    Z_Free(autoload_dir);
+  }
 
   // auto-loaded files per IWAD
   autoload_dir = GetAutoloadDir(IWADBaseName(), true);
@@ -1568,7 +1651,12 @@ static void EvaluateDoomVerStr(void)
 {
   if (heretic)
   {
-    doomverstr = "Heretic";
+    if (gamemode == retail)
+      doomverstr= "Heretic: Shadow of the Serpent Riders";
+    else if (gamemode == shareware)
+      doomverstr = "Heretic Shareware";
+    else
+      doomverstr = "Heretic";
   }
   else if (hexen)
   {
@@ -1581,8 +1669,17 @@ static void EvaluateDoomVerStr(void)
       case retail:
         switch (gamemission)
         {
-          case chex:
+          case tc_chex:
             doomverstr = "Chex(R) Quest";
+            break;
+          case tc_chex3v:
+            doomverstr = "Chex(R) Quest 3: Vanilla Edition";
+            break;
+          case tc_rekkr:
+            doomverstr = "REKKR";
+            break;
+          case tc_freedoom:
+            doomverstr = "Freedoom Phase 1";
             break;
           default:
             doomverstr = "The Ultimate DOOM";
@@ -1604,8 +1701,14 @@ static void EvaluateDoomVerStr(void)
           case pack_tnt:
             doomverstr = "Final DOOM - TNT: Evilution";
             break;
-          case hacx:
+          case tc_chex3v:
+            doomverstr = "Chex(R) Quest 3: Modding Edition";
+            break;
+          case tc_hacx:
             doomverstr = "HACX - Twitch 'n Kill";
+            break;
+          case tc_freedoom:
+            doomverstr = freedm ? "FreeDM" : "Freedoom Phase 2";
             break;
           default:
             doomverstr = "DOOM 2: Hell on Earth";
@@ -1634,9 +1737,181 @@ static void EvaluateDoomVerStr(void)
           "%s is released under the GNU General Public license v2.0.\n"
           "You are welcome to redistribute it under certain conditions.\n"
           "It comes with ABSOLUTELY NO WARRANTY. See the file COPYING for details.\n\n",
-          PACKAGE_NAME);
+          PROJECT_NAME);
 
   lprintf(LO_INFO, "Playing: %s\n", doomverstr);
+}
+
+static void dsda_Loadfiles(void)
+{
+  dsda_arg_t *arg;
+
+  if ((arg = dsda_Arg(dsda_arg_file))->found)
+  {
+    int file_i;
+    // the parms after p are wadfile/lump names,
+    // until end of parms or another - preceded parm
+    modifiedgame = true;            // homebrew levels
+
+    for (file_i = 0; file_i < arg->count; ++file_i)
+    {
+      const char* file_name;
+      char *file = NULL;
+
+      file_name = arg->value.v_string_array[file_i];
+
+      if (!dsda_FileExtension(file_name))
+      {
+        const char *extensions[] = { ".wad", ".lmp", ".zip", ".deh", ".bex", NULL };
+
+        file = I_RequireAnyFile(file_name, extensions);
+        file_name = file;
+      }
+
+      if (dsda_HasFileExt(file_name, ".deh") || dsda_HasFileExt(file_name, ".bex"))
+      {
+        if (MainLumpCache)
+          dsda_AppendStringArg(dsda_arg_deh, file_name);
+      }
+      else if (dsda_HasFileExt(file_name, ".zip"))
+      {
+        if (dsda_Arg(dsda_arg_iwad)->found)
+           D_AddZip(file_name, source_pwad, NULL);
+         else
+           MainLumpCache ? D_AddUnzippedFile(file_name, source_pwad, NULL) : D_AddZip(file_name, source_pwad, NULL);
+      }
+      else if (dsda_HasFileExt(file_name, ".wad") || dsda_HasFileExt(file_name, ".lmp"))
+      {
+        if (!file)
+          file = I_RequireWad(file_name);
+
+        D_AddFile(file, source_pwad);
+      }
+      else
+      {
+        I_Error("File type \"%s\" is not supported", dsda_FileExtension(file_name));
+      }
+
+      Z_Free(file);
+    }
+  }
+}
+
+//
+// DetectEpisodeStructure
+//
+// If GAMEINFO is not present but Doom 1 maps are found, autoload episode IWAD.
+//
+
+static void dsda_DetectEpisodeStructure(void)
+{
+  int i, ii;
+  char lump[5];
+  char *iwad;
+
+  for (i=0;i<10;i++)
+  {
+    for (ii=0;ii<10;ii++)
+    {
+      snprintf(lump, sizeof(lump), "E%dM%d", i, ii);
+      if (W_LumpNameExists(lump))
+      {
+        EpisodeStructure = true;
+        iwadver = Z_Strdup(lump);
+        iwad = FindIWADFile();
+
+        if (iwad)
+          iwadlump = Z_Strdup(iwad);
+
+        return;
+      }
+    }
+  }
+}
+
+//
+// IdentifyVersion
+//
+// Set the location of the defaults file and the savegame root
+// Locate and validate an IWAD file
+// Determine gamemode from the IWAD
+//
+// supports IWADs with custom names. Also allows the -iwad parameter to
+// specify which iwad is being searched for if several exist in one dir.
+// The -iwad parm may specify:
+//
+// 1) a specific pathname, which must exist (.wad optional)
+// 2) or a directory, which must contain a standard IWAD,
+// 3) or a filename, which must be found in one of the standard places:
+//   a) current dir,
+//   b) exe dir
+//   c) $DOOMWADDIR
+//   d) or $HOME
+//
+// jff 4/19/98 rewritten to use a more advanced search algorithm
+
+static void IdentifyVersion (void)
+{
+  char *iwad = NULL;
+
+  // why is this here?
+  dsda_InitDataDir();
+  dsda_InitSaveDir();
+
+  if (!dsda_Arg(dsda_arg_iwad)->found)
+  {
+    dsda_Loadfiles();  // Load files for GAMEINFO lump
+    if (!dsda_Flag(dsda_arg_noautoload)) D_AutoloadPWadDir(); // Load autoload PWAD files for GAMEINFO lump
+    W_Init(); // Quick cache to search for GAMEINFO lump
+
+    // Parse GAMEINFO lump
+    dsda_LoadGameInfo();
+
+    // Autodetect Doom 1 maps
+    if (iwadlump == NULL)
+      dsda_DetectEpisodeStructure();
+
+    // Reset lump cache
+    dsda_ResetInitLumpCache();
+
+    // If IWAD found, check if it exists
+    if (iwadlump != NULL)
+    {
+      iwad = FindIWADFile();
+
+      // Clear data if IWAD not found
+      if (!(iwad && *iwad))
+      {
+        Z_Free(iwadlump);
+        Z_Free(iwadver);
+        iwadlump = NULL;
+        iwadver = NULL;
+      }
+    }
+  }
+
+  // If GAMEINFO / Episode IWAD not found,
+  // locate IWAD the traditional way
+  if (iwadlump == NULL)
+  {
+    EpisodeStructure = false;
+    iwad = FindIWADFile();
+  }
+
+  // It is now ok to load dehacked / unzip files
+  MainLumpCache = true;
+
+  if (iwad && *iwad)
+  {
+    AddIWAD(iwad);
+    Z_Free(iwad);
+  }
+  else
+  {
+    I_Error("IdentifyVersion: IWAD not found\n\n"
+            "Make sure your IWADs are in a folder that dsda-doom searches on\n"
+            "For example: %s", I_ConfigDir());
+  }
 }
 
 //
@@ -1659,13 +1934,12 @@ static void D_DoomMainSetup(void)
     I_SafeExit(0);
   }
 
-  // figgi 09/18/00-- added switch to force classic bsp nodes
-  if (dsda_Flag(dsda_arg_forceoldbsp))
-    forceOldBsp = true;
+  // CPhipps - autoloading of wads
+  autoload = !dsda_Flag(dsda_arg_noautoload);
 
   DoLooseFiles();  // Ty 08/29/98 - handle "loose" files on command line
 
-  IdentifyVersion();
+  IdentifyVersion(); // Get IWAD
 
   dsda_InitGlobal();
 
@@ -1747,12 +2021,6 @@ static void D_DoomMainSetup(void)
   //e6y: some stuff from command-line should be initialised before ProcessDehFile()
   e6y_InitCommandLine();
 
-  // Automatic pistol start when advancing from one level to the next.
-  pistolstart = dsda_Flag(dsda_arg_pistolstart);
-
-  // CPhipps - autoloading of wads
-  autoload = !dsda_Flag(dsda_arg_noautoload);
-
   D_AddFile(port_wad_file, source_auto_load);
 
   // Must be before demo playback, skip and viddump parameters are parsed
@@ -1770,51 +2038,7 @@ static void D_DoomMainSetup(void)
   // add any files specified on the command line with -file wadfile
   // to the wad list
 
-  if ((arg = dsda_Arg(dsda_arg_file))->found)
-  {
-    int file_i;
-    // the parms after p are wadfile/lump names,
-    // until end of parms or another - preceded parm
-    modifiedgame = true;            // homebrew levels
-
-    for (file_i = 0; file_i < arg->count; ++file_i)
-    {
-      const char* file_name;
-      char *file = NULL;
-
-      file_name = arg->value.v_string_array[file_i];
-
-      if (!dsda_FileExtension(file_name))
-      {
-        const char *extensions[] = { ".wad", ".lmp", ".zip", ".deh", ".bex", NULL };
-
-        file = I_RequireAnyFile(file_name, extensions);
-        file_name = file;
-      }
-
-      if (dsda_HasFileExt(file_name, ".deh") || dsda_HasFileExt(file_name, ".bex"))
-      {
-        dsda_AppendStringArg(dsda_arg_deh, file_name);
-      }
-      else if (dsda_HasFileExt(file_name, ".zip"))
-      {
-        D_AddZip(file_name, source_pwad, NULL);
-      }
-      else if (dsda_HasFileExt(file_name, ".wad") || dsda_HasFileExt(file_name, ".lmp"))
-      {
-        if (!file)
-          file = I_RequireWad(file_name);
-
-        D_AddFile(file, source_pwad);
-      }
-      else
-      {
-        I_Error("File type \"%s\" is not supported", dsda_FileExtension(file_name));
-      }
-
-      Z_Free(file);
-    }
-  }
+  dsda_Loadfiles();
 
   // add wad files from autoload PWAD directories
   if (autoload)
@@ -1842,6 +2066,16 @@ static void D_DoomMainSetup(void)
 
   lprintf(LO_DEBUG, "G_ReloadDefaults: Checking OPTIONS.\n");
   dsda_ParseOptionsLump();
+
+  if (iwadlump != NULL)
+  {
+    lprintf(LO_INFO, "Detected %s lump: %s\n", iwadver ? iwadver : "GAMEINFO", iwadlump);
+    Z_Free(iwadlump);
+
+    if (iwadver)
+      Z_Free(iwadver);
+  }
+
   G_ReloadDefaults();
 
   // e6y
@@ -1872,7 +2106,7 @@ static void D_DoomMainSetup(void)
         ProcessDehFile(NULL, D_dehout(), lump);
       }
     }
-    if (gamemission == chex)
+    if (gamemission == tc_chex)
     {
       int lump = W_CheckNumForName2("CHEXDEH", ns_prboom);
       if (lump != LUMP_NOT_FOUND)
@@ -1955,6 +2189,7 @@ static void D_DoomMainSetup(void)
   dsda_LoadWadPreferences();
   dsda_LoadMapInfo();
   dsda_InitSkills();
+  dsda_InitGameModifiers(); // Set game modifiers based off args / persistent cfgs
 
   //jff 9/3/98 use logical output routine
   lprintf(LO_DEBUG, "\nP_Init: Init Playloop state.\n");

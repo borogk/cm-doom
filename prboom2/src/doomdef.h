@@ -76,10 +76,15 @@ typedef enum {
   pack_tnt,     // TNT mission pack
   pack_plut,    // Plutonia pack
   pack_nerve,   // No Rest For The Living
-  hacx,         // HACX - Twitch 'n Kill
-  chex,         // Chex Quest
+  tc_hacx,      // HACX - Twitch 'n Kill
+  tc_chex,      // Chex Quest
+  tc_chex3v,    // Chex Quest 3: Vanilla/Modding Edition
+  tc_rekkr,     // REKKR
+  tc_freedoom,  // Freedoom
   none
 } GameMission_t;
+
+extern dboolean tc_game;
 
 // Identify language to use, software localization.
 typedef enum {
@@ -109,6 +114,10 @@ typedef enum {
 // SCREENWIDTH and SCREENHEIGHT define the visible size
 extern int SCREENWIDTH;
 extern int SCREENHEIGHT;
+// ACTUALHEIGHT is the actual height of the resolution
+// If the resolution is 200p or 400p, aspect ratio correction
+// should be applied, making this value 240 or 480
+extern int ACTUALHEIGHT;
 // SCREENPITCH is the size of one line in the buffer and
 // can be bigger than the SCREENWIDTH depending on the size
 // of one pixel (8, 16 or 32 bit) and the padding at the
@@ -144,6 +153,7 @@ extern int SCREEN_320x200;
 // at the intermission screen, the game final animation, or a demo.
 
 typedef enum {
+  GS_DEFAULT = -1,
   GS_LEVEL,
   GS_INTERMISSION,
   GS_FINALE,
@@ -396,6 +406,8 @@ typedef enum {
 #define KEYD_MOUSE3     (0x80 + 0x62)
 #define KEYD_MWHEELUP   (0x80 + 0x6b)
 #define KEYD_MWHEELDOWN (0x80 + 0x6c)
+#define KEYD_MWHEELLEFT (0X80 + 0X6d)
+#define KEYD_MWHEELRIGHT (0X80 + 0X6e)
 
 // phares 3/20/98:
 //

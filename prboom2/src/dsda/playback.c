@@ -18,6 +18,7 @@
 #include "doomstat.h"
 #include "g_game.h"
 #include "i_system.h"
+#include "lprintf.h"
 #include "p_saveg.h"
 #include "w_wad.h"
 
@@ -34,14 +35,16 @@ static const byte* playback_origin_p;
 static const byte* playback_p;
 static int playback_length;
 static int playback_behaviour;
-static int playback_tics;
 
 static dsda_arg_t* playdemo_arg;
+static dsda_arg_t* playlump_arg;
 static dsda_arg_t* fastdemo_arg;
 static dsda_arg_t* timedemo_arg;
 static dsda_arg_t* recordfromto_arg;
 static char* playback_name;
 static char* playback_filename;
+
+extern int demo_tics;
 
 dboolean demoplayback;
 dboolean userdemo;
@@ -54,15 +57,11 @@ dboolean dsda_JumpToLogicTic(int tic) {
   if (tic < 0)
     return false;
 
-  if (tic > true_logictic)
-    dsda_SkipToLogicTic(tic);
-  else if (tic < true_logictic) {
-    if (!dsda_RestoreClosestKeyFrame(tic))
-      return false;
+  if (!dsda_RestoreClosestKeyFrame(tic))
+    return false;
 
-    if (tic != true_logictic)
-      dsda_SkipToLogicTic(tic);
-  }
+  if (tic != true_logictic)
+    dsda_SkipToLogicTic(tic);
 
   return true;
 }
@@ -85,6 +84,11 @@ const char* dsda_PlaybackName(void) {
 }
 
 void dsda_ExecutePlaybackOptions(void) {
+  if (playlump_arg) {
+    if (W_CheckNumForName(playback_name) == LUMP_NOT_FOUND)
+      I_Error("Unable to find required internal demo lump \"%s\"", playback_name);
+  }
+
   if (playdemo_arg)
   {
     G_DeferedPlayDemo(playback_name);
@@ -109,7 +113,7 @@ void dsda_ExecutePlaybackOptions(void) {
   }
 }
 
-static void dsda_UpdatePlaybackName(const char* name) {
+static void dsda_UpdatePlaybackName(const char* name, dboolean require_file) {
   if (playback_name)
     Z_Free(playback_name);
 
@@ -117,7 +121,11 @@ static void dsda_UpdatePlaybackName(const char* name) {
     Z_Free(playback_filename);
 
   playback_name = Z_Strdup(name);
-  playback_filename = I_RequireFile(playback_name, ".lmp");
+
+  if (require_file)
+    playback_filename = I_FindFile(playback_name, ".lmp");
+  else
+    playback_filename = NULL;
 }
 
 const char* dsda_ParsePlaybackOptions(void) {
@@ -126,7 +134,18 @@ const char* dsda_ParsePlaybackOptions(void) {
   arg = dsda_Arg(dsda_arg_playdemo);
   if (arg->found) {
     playdemo_arg = arg;
-    dsda_UpdatePlaybackName(arg->value.v_string);
+    dsda_UpdatePlaybackName(arg->value.v_string, true);
+    // fall back to lump if file not found
+    if (!playback_filename)
+      playlump_arg = arg;
+    return playback_filename;
+  }
+
+  arg = dsda_Arg(dsda_arg_playlump);
+  if (arg->found) {
+    playlump_arg = arg;
+    dsda_UpdatePlaybackName(arg->value.v_string, false);
+    playdemo_arg = arg;
     return playback_filename;
   }
 
@@ -134,14 +153,20 @@ const char* dsda_ParsePlaybackOptions(void) {
   if (arg->found) {
     fastdemo_arg = arg;
     fastdemo = true;
-    dsda_UpdatePlaybackName(arg->value.v_string);
+    dsda_UpdatePlaybackName(arg->value.v_string, true);
+    // fall back to lump if file not found
+    if (!playback_filename)
+      playlump_arg = arg;
     return playback_filename;
   }
 
   arg = dsda_Arg(dsda_arg_timedemo);
   if (arg->found) {
     timedemo_arg = arg;
-    dsda_UpdatePlaybackName(arg->value.v_string);
+    dsda_UpdatePlaybackName(arg->value.v_string, true);
+    // fall back to lump if file not found
+    if (!playback_filename)
+      playlump_arg = arg;
     return playback_filename;
   }
 
@@ -149,7 +174,10 @@ const char* dsda_ParsePlaybackOptions(void) {
   if (arg->found) {
     recordfromto_arg = arg;
     dsda_SetDemoBaseName(arg->value.v_string_array[1]);
-    dsda_UpdatePlaybackName(arg->value.v_string_array[0]);
+    dsda_UpdatePlaybackName(arg->value.v_string_array[0], true);
+    // require a file
+    if (!playback_filename)
+      playback_filename = I_RequireFile(arg->value.v_string_array[0], ".lmp");
     return playback_filename;
   }
 
@@ -165,20 +193,16 @@ void dsda_AttachPlaybackStream(const byte* demo_p, int length, int behaviour) {
   playback_p = demo_p;
   playback_length = length;
   playback_behaviour = behaviour;
-  playback_tics = 0;
-}
-
-int dsda_PlaybackTics(void) {
-  return playback_tics;
+  demo_tics = 0;
 }
 
 void dsda_StorePlaybackPosition(void) {
-  P_SAVE_X(playback_tics);
+  P_SAVE_X(demo_tics);
   P_SAVE_X(playback_p);
 }
 
 void dsda_RestorePlaybackPosition(void) {
-  P_LOAD_X(playback_tics);
+  P_LOAD_X(demo_tics);
   P_LOAD_X(playback_p);
 }
 
@@ -187,7 +211,7 @@ void dsda_ClearPlaybackStream(void) {
   playback_p = NULL;
   playback_length = 0;
   playback_behaviour = 0;
-  playback_tics = 0;
+  demo_tics = 0;
 
   demoplayback = false;
   userdemo = false;
@@ -229,7 +253,7 @@ void dsda_TryPlaybackOneTick(ticcmd_t* cmd) {
   else {
     G_ReadOneTick(cmd, &playback_p);
 
-    ++playback_tics;
+    ++demo_tics;
   }
 
   if (ended) {

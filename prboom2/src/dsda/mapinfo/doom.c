@@ -158,6 +158,40 @@ int dsda_DoomNextMap(int* episode, int* map) {
   return true;
 }
 
+int dsda_DoomPrevMap(int* episode, int* map) {
+  int i;
+
+  if (!current_map)
+    return false;
+
+  for (i = 0; i < doom_mapinfo.num_maps; ++i)
+    if (
+      doom_mapinfo.maps[i].secret_next.map &&
+      !stricmp(doom_mapinfo.maps[i].secret_next.map, current_map->lump_name)
+    ) {
+      *map = doom_mapinfo.maps[i].level_num;
+      *episode = 1;
+
+      return true;
+    }
+
+  for (i = 0; i < doom_mapinfo.num_maps; ++i)
+    if (
+      doom_mapinfo.maps[i].next.map &&
+      !stricmp(doom_mapinfo.maps[i].next.map, current_map->lump_name)
+    ) {
+      *map = doom_mapinfo.maps[i].level_num;
+      *episode = 1;
+
+      return true;
+    }
+
+  *map = current_map->level_num;
+  *episode = 1;
+
+  return false;
+}
+
 int dsda_DoomShowNextLocBehaviour(int* behaviour) {
   if (!current_map)
     return false;
@@ -244,13 +278,22 @@ int dsda_DoomMusicIndexToLumpNum(int* lump, int music_index) {
   return false;
 }
 
-int dsda_DoomMapMusic(int* music_index, int* music_lump) {
+int dsda_DoomMapMusic(int* music_index, int* music_lump, int episode, int map) {
   int lump;
+  const doom_mapinfo_map_t* entry;
+  int level_num;
 
-  if (!current_map || !current_map->music)
+  if (gamemode == commercial)
+    level_num = map;
+  else
+    level_num = map + episode * 10;
+
+  entry = dsda_DoomMapEntry(level_num);
+
+  if (!entry || !entry->music)
     return false;
 
-  lump = W_CheckNumForName(current_map->music);
+  lump = W_CheckNumForName(entry->music);
 
   if (lump == LUMP_NOT_FOUND)
     return false;
@@ -416,7 +459,7 @@ void dsda_DoomFDrawer(void) {
   else {
     // e6y: wide-res
     V_ClearBorder();
-    V_DrawNamePatch(0, 0, 0, end_data->end_pic, CR_DEFAULT, VPT_STRETCH);
+    V_DrawNamePatchFS(0, 0, 0, end_data->end_pic, CR_DEFAULT, VPT_STRETCH);
   }
 }
 
@@ -479,7 +522,7 @@ int dsda_DoomHUTitle(dsda_string_t* str) {
   if (!current_map)
     return false;
 
-  dsda_StringPrintF(str, "%s", current_map->nice_name);
+  dsda_StringPrintF(str, "%s: %s", current_map->lump_name, current_map->nice_name);
 
   return true;
 }
@@ -518,7 +561,7 @@ int dsda_DoomPrepareIntermission(int* result) {
   }
 
   if (current_map->par) {
-    wminfo.partime = current_map->par;
+    wminfo.partime = current_map->par * TICRATE;
     wminfo.modified_partime = true;
   }
 

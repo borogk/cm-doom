@@ -100,7 +100,10 @@ dsda_text_color_t dsda_text_colors[] = {
   [dsda_tc_map_totals_max] = { "map_totals_max", CR_LIGHTBLUE },
   [dsda_tc_inter_split_normal] = { "inter_split_normal", CR_GRAY },
   [dsda_tc_inter_split_good] = { "inter_split_good", CR_GREEN },
+  [dsda_tc_inter_split_best] = { "inter_split_best", CR_GOLD },
   [dsda_tc_menu_title] = { "menu_title", CR_GOLD },
+  [dsda_tc_menu_tab] = { "menu_tab", CR_TAN },
+  [dsda_tc_menu_tab_highlight] = { "menu_tab_highlight", CR_GOLD },
   [dsda_tc_menu_label] = { "menu_label", CR_RED },
   [dsda_tc_menu_label_highlight] = { "menu_label_highlight", CR_BRICK },
   [dsda_tc_menu_label_edit] = { "menu_label_edit", CR_GRAY },
@@ -110,6 +113,7 @@ dsda_text_color_t dsda_text_colors[] = {
   [dsda_tc_menu_info_highlight] = { "menu_info_highlight", CR_BRICK },
   [dsda_tc_menu_info_edit] = { "menu_info_edit", CR_GRAY },
   [dsda_tc_menu_warning] = { "menu_warning", CR_RED },
+  [dsda_tc_menu_scrollbar] = { "menu_scrollbar", CR_TAN },
   [dsda_tc_stbar_health_bad] = { "stbar_health_bad", CR_RED },
   [dsda_tc_stbar_health_warning] = { "stbar_health_warning", CR_GOLD },
   [dsda_tc_stbar_health_ok] = { "stbar_health_ok", CR_GREEN },
@@ -173,7 +177,7 @@ void dsda_LoadTextColor(void) {
   Z_Free(lump);
 }
 
-static const char* color_name_to_index[CR_LIMIT] = {
+static const char* color_name_to_index[CR_HUD_LIMIT] = {
   "",
   "brick",
   "tan",
@@ -197,7 +201,7 @@ int dsda_ColorNameToIndex(const char* name) {
   if (!name)
     return CR_DEFAULT;
 
-  for (i = CR_DEFAULT + 1; i < CR_LIMIT; ++i)
+  for (i = CR_DEFAULT + 1; i < CR_HUD_LIMIT; ++i)
     if (!stricmp(color_name_to_index[i], name))
       return i;
 

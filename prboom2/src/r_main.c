@@ -63,6 +63,7 @@
 
 #include "dsda/configuration.h"
 #include "dsda/exhud.h"
+#include "dsda/features.h"
 #include "dsda/map_format.h"
 #include "dsda/mapinfo.h"
 #include "dsda/render_stats.h"
@@ -86,6 +87,8 @@ int r_frame_count;
 #define FIELDOFVIEW 2048
 
 #define HEXEN_PI 3.141592657
+
+#define FIXED2DOUBLE(x) ((x)/(double)FRACUNIT)
 
 int validcount = 1;         // increment every time a check is made
 int validcount2 = 1;
@@ -141,6 +144,9 @@ int viewangletox[FINEANGLES/2];
 // e6y: resolution limitation is removed
 angle_t *xtoviewangle;   // killough 2/8/98
 
+// [FG] linear horizontal sky scrolling
+angle_t *linearskyangle;
+
 // killough 3/20/98: Support dynamic colormaps, e.g. deep water
 // killough 4/4/98: support dynamic number of them as well
 
@@ -151,6 +157,8 @@ const lighttable_t *(*scalelight)[MAXLIGHTSCALE];
 const lighttable_t *(*zlight)[MAXLIGHTZ];
 const lighttable_t *fullcolormap;
 const lighttable_t **colormaps;
+
+const byte* colormap_lump;
 
 // killough 3/20/98, 4/4/98: end dynamic colormaps
 
@@ -362,7 +370,8 @@ angle_t R_PointToPseudoAngle (fixed_t x, fixed_t y)
 
 static void R_InitTextureMapping (void)
 {
-  int i,x;
+  int i,x,angle;
+  double linearskyfactor;
   FieldOfView = FIELDOFVIEW;
 
   // For widescreen displays, increase the FOV so that the middle part of the
@@ -410,11 +419,17 @@ static void R_InitTextureMapping (void)
   //  xtoviewangle will give the smallest view angle
   //  that maps to x.
 
+  linearskyfactor = FIXED2DOUBLE(finetangent[FINEANGLES/4 + FieldOfView/2]) * ANG90;
+
   for (x=0; x<=viewwidth; x++)
     {
       for (i=0; viewangletox[i] > x; i++)
         ;
       xtoviewangle[x] = (i<<ANGLETOFINESHIFT)-ANG90;
+
+      // [FG] linear horizontal sky scrolling
+      angle = (0.5 - x / (double)viewwidth) * linearskyfactor;
+      linearskyangle[x] = (angle >= 0) ? angle : ANGLE_MAX + angle;
     }
 
   // Take out the fencepost cases from viewangletox.
@@ -488,11 +503,13 @@ static void R_InitLightTables (void)
 // The change will take effect next refresh.
 //
 
+extern dboolean BorderNeedRefresh;
 dboolean setsizeneeded;
 static int setblocks;
 
 void R_SetViewSize(void)
 {
+  BorderNeedRefresh = true;
   setsizeneeded = true;
   setblocks = dsda_IntConfig(dsda_config_screenblocks);
 }
@@ -748,6 +765,9 @@ void R_ExecuteSetViewSize (void)
     }
   }
 
+  I_SetWindowRect();
+  I_SetViewportRect();
+
   if (V_IsOpenGLMode())
     dsda_GLSetRenderViewportParams();
 
@@ -797,6 +817,50 @@ subsector_t *R_PointInSubsector(fixed_t x, fixed_t y)
   while (!(nodenum & NF_SUBSECTOR))
     nodenum = nodes[nodenum].children[R_PointOnSide(x, y, nodes+nodenum)];
   return &subsectors[nodenum & ~NF_SUBSECTOR];
+}
+
+sector_t *R_PointInSector(fixed_t x, fixed_t y)
+{
+  return R_PointInSubsector(x, y)->sector;
+}
+
+void R_SectorCenter(fixed_t *x, fixed_t *y, sector_t *sec)
+{
+  int i;
+  *x = 0;
+  *y = 0;
+
+  if (!sec->linecount)
+    return;
+
+  for (i = 0; i < sec->linecount; ++i)
+  {
+    *x += sec->lines[i]->v1->x;
+    *y += sec->lines[i]->v1->y;
+  }
+
+  *x /= sec->linecount;
+  *y /= sec->linecount;
+
+  if (R_PointInSector(*x, *y) != sec)
+  {
+    *x = sec->lines[0]->v1->x;
+    *y = sec->lines[0]->v1->y;
+  }
+}
+
+void R_LineCenter(fixed_t *x, fixed_t *y, line_t *line)
+{
+  if (!line->v1 || !line->v2)
+  {
+    *x = 0;
+    *y = 0;
+
+    return;
+  }
+
+  *x = (line->v1->x + line->v2->x) / 2;
+  *y = (line->v1->y + line->v2->y) / 2;
 }
 
 //
@@ -867,10 +931,19 @@ static void R_SetupFrame (player_t *player)
   int i, cm;
 
   int FocalTangent = finetangent[FINEANGLES/4 + FieldOfView/2];
+  int extra_brightness = dsda_IntConfig(dsda_config_extra_level_brightness);
 
   viewplayer = player;
 
   extralight = player->extralight;
+
+  if (extra_brightness < 0 || extra_brightness > 4) {
+    extra_brightness = 0;
+  }
+  if (extra_brightness != 0) {
+      dsda_TrackFeature(uf_levelbrightness);
+  }
+  extralight += extra_brightness;
 
   viewsin = finesine[viewangle>>ANGLETOFINESHIFT];
   viewcos = finecosine[viewangle>>ANGLETOFINESHIFT];

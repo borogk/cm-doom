@@ -15,9 +15,12 @@
 //	DSDA Mouse
 //
 
+#include "SDL.h"
+
 #include "dsda/configuration.h"
 #include "dsda/features.h"
 
+#include "i_video.h"
 #include "mouse.h"
 
 static int quickstart_cache_tics;
@@ -56,4 +59,27 @@ void dsda_ApplyQuickstartMouseCache(int* mousex) {
 
 void dsda_QueueQuickstart(void) {
   quickstart_queued = true;
+}
+
+void dsda_GetMousePosition(int *x, int *y)
+{
+  SDL_GetMouseState(x, y);
+
+  // Lets account for HiDPI displays since SDL_GetMouseState doesnt
+  *x = (int)(*x * (float)renderer_rect.w / (float)window_rect.w);
+  *y = (int)(*y * (float)renderer_rect.h / (float)window_rect.h);
+
+  // x and y currently have the mouse position in the renderer_rect
+  // but we want the mouse position in the viewport_rect
+  if (viewport_rect.x < *x && *x < (viewport_rect.w + viewport_rect.x) &&
+      viewport_rect.y < *y && *y < (viewport_rect.h + viewport_rect.y))
+  {
+    *x -= viewport_rect.x;
+    *y -= viewport_rect.y;
+  }
+  else
+  {
+    *x = 0;
+    *y = 0;
+  }
 }

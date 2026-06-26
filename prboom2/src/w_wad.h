@@ -92,10 +92,13 @@ extern wadfile_info_t *wadfiles;
 
 extern size_t numwadfiles; // CPhipps - size of the wadfiles array
 
+extern int MainLumpCache;
+
 void W_Init(void); // CPhipps - uses the above array
 void W_InitCache(void);
 void W_DoneCache(void);
 void W_Shutdown(void);
+void dsda_ResetInitLumpCache(void);
 
 typedef enum
 {
@@ -161,10 +164,14 @@ char*   W_ReadLumpToString (int lump);
 const void* W_SafeLumpByNum (int lump);
 const void* W_LumpByNum (int lump);
 const void* W_LockLumpNum(int lump);
+void *W_GetModifiableLumpData(int lump);
 
 int W_LumpNumExists(int lump);
 int W_LumpNameExists(const char *name);
 int W_LumpNameExists2(const char *name, int ns);
+int W_PWADLumpNumExists(int lump);
+int W_PWADLumpNameExists(const char *name);
+int W_PWADMapExists(void);
 
 // CPhipps - convenience macros
 //#define W_LumpByNum(num) (W_LumpByNum)((num),1)

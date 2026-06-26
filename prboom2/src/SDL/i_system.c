@@ -56,6 +56,10 @@
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#ifdef HAVE_GETPWUID
+#include <sys/types.h>
+#include <pwd.h>
+#endif
 #endif
 
 #ifdef _MSC_VER
@@ -81,6 +85,7 @@
 #include "dsda/settings.h"
 #include "dsda/signal_context.h"
 #include "dsda/time.h"
+#include "dsda/utility.h"
 
 void I_uSleep(unsigned long usecs)
 {
@@ -123,6 +128,8 @@ fixed_t I_GetTimeFrac (void)
   }
   else
   {
+    static fixed_t last_frac;
+    static int last_gametic;
     unsigned long long tic_time;
     const double tics_per_usec = TICRATE / 1000000.0f;
 
@@ -130,6 +137,14 @@ fixed_t I_GetTimeFrac (void)
 
     frac = (fixed_t) (tic_time * FRACUNIT * tics_per_usec);
     frac = BETWEEN(0, FRACUNIT, frac);
+
+    if (frac < last_frac && last_gametic == gametic)
+    {
+      frac = FRACUNIT;
+    }
+
+    last_frac = frac;
+    last_gametic = gametic;
   }
 
   return frac;
@@ -226,11 +241,15 @@ void I_SwitchToWindow(HWND hwnd)
   }
 }
 
-const char *I_DoomExeDir(void)
+const char *I_ConfigDir(void)
+{
+  return I_ExeDir();
+}
+
+const char *I_ExeDir(void)
 {
   extern char **dsda_argv;
 
-  static const char current_dir_dummy[] = {"."}; // proff - rem extra slash 8/21/03
   static char *base;
   if (!base)        // cache multiple requests
     {
@@ -246,7 +265,7 @@ const char *I_DoomExeDir(void)
         Z_Free(base);
         base = (char*)Z_Malloc(1024);
         if (!M_getcwd(base, 1024) || !M_WriteAccess(base))
-          strcpy(base, current_dir_dummy);
+          strcpy(base, ".");
       }
     }
   return base;
@@ -274,7 +293,12 @@ const char* I_GetTempDir(void)
 
 #elif defined(AMIGA)
 
-const char *I_DoomExeDir(void)
+const char *I_ConfigDir(void)
+{
+  return "PROGDIR:";
+}
+
+const char *I_ExeDir(void)
 {
   return "PROGDIR:";
 }
@@ -284,27 +308,112 @@ const char* I_GetTempDir(void)
   return "PROGDIR:";
 }
 
-#else
-// cph - V.Aguilar (5/30/99) suggested return ~/.lxdoom/, creating
-//  if non-existant
-// cph 2006/07/23 - give prboom+ its own dir
-static const char prboom_dir[] = {"/.dsda-doom"}; // Mead rem extra slash 8/21/03
+#else /* not Windows, not Amiga */
 
-const char *I_DoomExeDir(void)
+static const char *I_GetHomeDir(void)
+{
+  const char *home = M_getenv("HOME");
+
+  if (!home)
+  {
+#ifdef HAVE_GETPWUID
+    struct passwd *user_info = getpwuid(getuid());
+    if (user_info != NULL)
+      home = user_info->pw_dir;
+    else
+#endif
+      home = "/";
+  }
+
+  return home;
+}
+
+// Reference for XDG directories:
+// <https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html>
+static const char *I_GetXDGDataHome(void)
+{
+  static char *datahome = 0;
+
+  if (!datahome)
+  {
+    const char *xdgdatahome = M_getenv("XDG_DATA_HOME");
+
+    if (!xdgdatahome || !*xdgdatahome)
+    {
+      size_t datahome_size;
+      const char *home = I_GetHomeDir();
+
+      datahome_size = strlen(home) + 1 + sizeof(".local/share");
+      datahome = Z_Malloc(datahome_size);
+      snprintf(datahome, datahome_size, "%s%s%s", home, !HasTrailingSlash(home) ? "/" : "", ".local/share");
+    }
+    else
+    {
+      datahome = Z_Strdup(xdgdatahome);
+    }
+  }
+  return datahome;
+}
+
+static const char *I_GetXDGDataDirs(void)
+{
+  const char *datadirs = M_getenv("XDG_DATA_DIRS");
+
+  if (!datadirs || !*datadirs)
+    return "/usr/local/share/:/usr/share/";
+  return datadirs;
+}
+
+const char *I_ConfigDir(void)
 {
   static char *base;
-  if (!base)        // cache multiple requests
-  {
-    char *home = M_getenv("HOME");
-    size_t len = strlen(home);
 
-    base = Z_Malloc(len + strlen(prboom_dir) + 1);
-    strcpy(base, home);
-    // I've had trouble with trailing slashes before...
-    if (base[len-1] == '/') base[len-1] = 0;
-    strcat(base, prboom_dir);
-    M_MakeDir(base, true); // Make sure it exists
+  if (!base)
+  {
+    const char *home = I_GetHomeDir();
+
+    // First, try legacy directory.
+    base = dsda_ConcatDir(home, ".dsda-doom");
+    if (access(base, F_OK) != 0)
+    {
+      // Legacy directory is not accessible. Use XDG directory.
+      Z_Free(base);
+
+#ifdef __APPLE__
+      base = dsda_ConcatDir(home, "Library/Application Support/dsda-doom");
+#else
+      base = dsda_ConcatDir(I_GetXDGDataHome(), "dsda-doom");
+#endif
+    }
+
+    M_MakeDir(base, false);
   }
+
+  return base;
+}
+
+const char *I_ExeDir(void)
+{
+  extern char **dsda_argv;
+
+  static char *base;
+  if (!base)        // cache multiple requests
+    {
+      size_t len = strlen(*dsda_argv);
+      char *p = (base = (char*)Z_Malloc(len+1)) + len - 1;
+      strcpy(base,*dsda_argv);
+      while (p > base && *p!='/' && *p!='\\')
+        *p--=0;
+      if (*p=='/' || *p=='\\')
+        *p--=0;
+      if (strlen(base) < 2 || !M_WriteAccess(base))
+      {
+        Z_Free(base);
+        base = (char*)Z_Malloc(1024);
+        if (!M_getcwd(base, 1024) || !M_WriteAccess(base))
+          strcpy(base, ".");
+      }
+    }
   return base;
 }
 
@@ -354,9 +463,9 @@ static const char *I_GetBasePath(void)
  */
 
 #ifdef _WIN32
-#define PATH_SEPARATOR ';'
+#define PATH_SEPARATOR ";"
 #else
-#define PATH_SEPARATOR ':'
+#define PATH_SEPARATOR ":"
 #endif
 
 char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
@@ -366,20 +475,23 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     const char *dir; // directory
     const char *sub; // subdirectory
     const char *env; // environment variable
-    const char *(*func)(void); // for I_DoomExeDir
+    const char *(*func)(void); // for functions that return the directory
   } search0[] = {
-    {NULL, NULL, NULL, I_DoomExeDir}, // config directory
+    {NULL, NULL, NULL, I_ExeDir}, // executable directory
+#if !defined(_WIN32) && !defined(AMIGA)
+    {NULL, NULL, NULL, I_ConfigDir}, // config and autoload directory. on windows/amiga, this is the same as I_ExeDir
+#endif
     {NULL}, // current working directory
     {NULL, NULL, "DOOMWADDIR"}, // run-time $DOOMWADDIR
     {DOOMWADDIR}, // build-time configured DOOMWADDIR
     {DSDA_ABSOLUTE_PWAD_PATH}, // build-time configured absolute path to dsda-doom.wad
     {NULL, NULL, NULL, I_GetBasePath}, // search the base path provided by SDL
+    {NULL, "../share/games/doom", NULL, I_GetBasePath}, // AppImage
     {NULL, "doom", "HOME"}, // ~/doom
     {NULL, NULL, "HOME"}, // ~
-    {"/usr/local/share/games/doom"},
-    {"/usr/share/games/doom"},
-    {"/usr/local/share/doom"},
-    {"/usr/share/doom"},
+#if !defined(_WIN32) && !defined(AMIGA)
+    {NULL, "games/doom", NULL, I_GetXDGDataHome}, // $HOME/.local/share/games/doom
+#endif
   }, *search;
 
   static size_t num_search;
@@ -395,46 +507,72 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
 
   if (!num_search)
   {
-    char *dwp;
+    int extra = 0;
+#if !defined(_WIN32) && !defined(AMIGA)
+    int datadirs = 0;
+#endif
+    const char *dwp;
+
+    // calculate how many extra entries we need to add to the table
+#if !defined(_WIN32) && !defined(AMIGA)
+    dwp = I_GetXDGDataDirs();
+    datadirs++;
+    while ((dwp = strchr(dwp, *PATH_SEPARATOR)))
+      dwp++, datadirs++;
+    extra += datadirs * 2; // two entries for each datadir
+#endif
+    if ((dwp = M_getenv("DOOMWADPATH")))
+    {
+      extra++;
+      while ((dwp = strchr(dwp, *PATH_SEPARATOR)))
+        dwp++, extra++;
+    }
 
     // initialize with the static lookup table
     num_search = sizeof(search0)/sizeof(*search0);
-    search = Z_Malloc(num_search * sizeof(*search));
+    search = Z_Malloc((num_search + extra) * sizeof(*search));
     memcpy(search, search0, num_search * sizeof(*search));
+    memset(&search[num_search], 0, extra * sizeof(*search));
+
+#if !defined(_WIN32) && !defined(AMIGA)
+    // add $XDG_DATA_DIRS/games/doom and $XDG_DATA_DIRS/doom
+    // by default this includes:
+    // - /usr/local/share/games/doom
+    // - /usr/share/games/doom
+    // - /usr/local/share/doom
+    // - /usr/share/doom
+    {
+      char *ptr, *dup_dwp;
+
+      dup_dwp = Z_Strdup(I_GetXDGDataDirs());
+      ptr = strtok(dup_dwp, PATH_SEPARATOR);
+      while (ptr)
+      {
+        search[num_search].dir = Z_Strdup(ptr);
+        search[num_search].sub = "games/doom";
+        search[num_search + datadirs].dir = Z_Strdup(ptr);
+        search[num_search + datadirs].sub = "doom";
+        num_search++;
+        ptr = strtok(NULL, PATH_SEPARATOR);
+      }
+      Z_Free(dup_dwp);
+      num_search += datadirs;
+    }
+#endif
 
     // add each directory from the $DOOMWADPATH environment variable
     if ((dwp = M_getenv("DOOMWADPATH")))
     {
-      char *left, *ptr, *dup_dwp;
+      char *ptr, *dup_dwp;
 
       dup_dwp = Z_Strdup(dwp);
-      left = dup_dwp;
-
-      for (;;)
+      ptr = strtok(dup_dwp, PATH_SEPARATOR);
+      while (ptr)
       {
-          ptr = strchr(left, PATH_SEPARATOR);
-          if (ptr != NULL)
-          {
-              *ptr = '\0';
-
-              num_search++;
-              search = Z_Realloc(search, num_search * sizeof(*search));
-              memset(&search[num_search-1], 0, sizeof(*search));
-              search[num_search-1].dir = Z_Strdup(left);
-
-              left = ptr + 1;
-          }
-          else
-          {
-              break;
-          }
+        search[num_search].dir = Z_Strdup(ptr);
+        num_search++;
+        ptr = strtok(NULL, PATH_SEPARATOR);
       }
-
-      num_search++;
-      search = Z_Realloc(search, num_search * sizeof(*search));
-      memset(&search[num_search-1], 0, sizeof(*search));
-      search[num_search-1].dir = Z_Strdup(left);
-
       Z_Free(dup_dwp);
     }
   }
@@ -445,6 +583,7 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
   for (i = 0; i < num_search; i++) {
     const char  * d = NULL;
     const char  * s = NULL;
+    size_t p_size = PATH_MAX;
     /* Each entry in the switch sets d to the directory to look in,
      * and optionally s to a subdirectory of d */
     // switch replaced with lookup table
@@ -458,10 +597,14 @@ char* I_FindFileInternal(const char* wfname, const char* ext, dboolean isStatic)
     s = search[i].sub;
 
     if (!isStatic)
-      p = (char*)Z_Malloc((d ? strlen(d) : 0) + (s ? strlen(s) : 0) + pl);
-    sprintf(p, "%s%s%s%s%s", d ? d : "", (d && !HasTrailingSlash(d)) ? "/" : "",
-                             s ? s : "", (s && !HasTrailingSlash(s)) ? "/" : "",
-                             wfname);
+    {
+      p_size = (d ? strlen(d) : 0) + (s ? strlen(s) : 0) + pl;
+      p = (char*)Z_Malloc(p_size);
+    }
+
+    snprintf(p, p_size, "%s%s%s%s%s", d ? d : "", (d && !HasTrailingSlash(d)) ? "/" : "",
+                                     s ? s : "", (s && !HasTrailingSlash(s)) ? "/" : "",
+                                     wfname);
 
     if (ext && !M_FileExists(p))
       strcat(p, ext);

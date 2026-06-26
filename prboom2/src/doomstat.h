@@ -74,6 +74,8 @@ extern complevel_t compatibility_level;
 
 extern int demo_insurance;      // killough 4/5/98
 
+extern dboolean pistolstart;
+
 // -------------------------------------------
 // killough 10/98: compatibility vector
 
@@ -122,7 +124,6 @@ enum {
   comperr_passuse,
   comperr_hangsolid,
   comperr_blockmap,
-  comperr_freeaim,
 
   COMPERR_NUM
 };
@@ -198,7 +199,8 @@ extern int automap_follow;
 extern int automap_grid;
 
 #define automap_on (automap_active && !automap_overlay)
-#define automap_off (!automap_on)
+#define automap_off (!automap_active && automap_overlay > 0)
+#define automap_stbar (automap_active && R_StatusBarVisible())
 #define automap_input (automap_active)
 #define automap_hud (automap_active && !automap_overlay)
 
@@ -350,7 +352,5 @@ extern int monster_infighting;
 extern int monkeys;
 
 extern int HelperThing;          // type of thing to use for helper
-
-extern dboolean forceOldBsp;
 
 #endif

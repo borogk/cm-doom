@@ -39,10 +39,13 @@
 #define MI_FILTER_STARTS                  0x00000020ul
 #define MI_ALLOW_RESPAWN                  0x00000040ul
 #define MI_ALLOW_JUMP                     0x00000080ul
+#define MI_ALLOW_FREE_LOOK                0x00000100ul
 #define MI_CHECK_SWITCH_RANGE             0x00000200ul
 #define MI_RESET_HEALTH                   0x00000400ul
 #define MI_RESET_INVENTORY                0x00000800ul
 #define MI_USE_PLAYER_START_Z             0x00001000ul
+#define MI_VERTICAL_EXPLOSION_THRUST      0x00002000ul
+#define MI_EXPLODE_IN_3D                  0x00004000ul
 #define MI_SHOW_AUTHOR                    0x00008000ul
 #define MI_PASSOVER                       0x00010000ul
 #define MI_EVEN_LIGHTING                  0x00020000ul
@@ -65,6 +68,7 @@ void dsda_NewGameMap(int* episode, int* map);
 void dsda_ResolveWarp(int* args, int arg_count, int* episode, int* map);
 int dsda_NameToMap(const char* name, int* episode, int* map);
 void dsda_NextMap(int* episode, int* map);
+void dsda_PrevMap(int* episode, int* map);
 void dsda_ShowNextLocBehaviour(int* behaviour);
 int dsda_SkipDrawShowNextLoc(void);
 void dsda_UpdateGameMap(int episode, int map);
@@ -76,7 +80,7 @@ void dsda_UpdateNextMapInfo(void);
 int dsda_ResolveCLEV(int* episode, int* map);
 int dsda_ResolveINIT(void);
 int dsda_MusicIndexToLumpNum(int music_index);
-void dsda_MapMusic(int* music_index, int* music_lump);
+void dsda_MapMusic(int* music_index, int* music_lump, int episode, int map);
 void dsda_IntermissionMusic(int* music_index, int* music_lump);
 void dsda_InterMusic(int* music_index, int* music_lump);
 void dsda_StartFinale(void);

@@ -55,6 +55,8 @@
 #include "lprintf.h"
 #include "e6y.h"
 
+#include "dsda/utility.h"
+
 //
 // GLOBALS
 //
@@ -62,6 +64,8 @@
 // Location of each lump on disk.
 lumpinfo_t *lumpinfo;
 int        numlumps;         // killough
+
+int MainLumpCache = false;
 
 void ExtractFileBase (const char *path, char *dest)
 {
@@ -151,17 +155,15 @@ static void W_AddFile(wadfile_info_t *wadfile)
 
   wadfile->handle = M_OpenRB(wadfile->name);
   if (wadfile->handle == -1)
-    {
-      if (  strlen(wadfile->name)<=4 ||      // add error check -- killough
-	         (strcasecmp(wadfile->name+strlen(wadfile->name)-4 , ".lmp" ) &&
-	          strcasecmp(wadfile->name+strlen(wadfile->name)-4 , ".gwa" ) )
-         )
-	I_Error("W_AddFile: couldn't open %s",wadfile->name);
-      return;
-    }
+  {
+    if (!dsda_HasFileExt(wadfile->name, ".lmp"))
+      I_Error("W_AddFile: couldn't open %s",wadfile->name);
+    return;
+  }
 
   //jff 8/3/98 use logical output routine
-  lprintf (LO_INFO," adding %s\n",wadfile->name);
+  if (MainLumpCache)
+    lprintf (LO_INFO," adding %s\n",wadfile->name);
   startlump = numlumps;
 
   // mark lumps from internal resource
@@ -178,12 +180,7 @@ static void W_AddFile(wadfile_info_t *wadfile)
     }
   }
 
-  if (  strlen(wadfile->name)<=4 ||
-	      (
-          strcasecmp(wadfile->name+strlen(wadfile->name)-4,".wad") &&
-	        strcasecmp(wadfile->name+strlen(wadfile->name)-4,".gwa")
-        )
-     )
+  if (!dsda_HasFileExt(wadfile->name, ".wad"))
     {
       // single lump file
       fileinfo = &singleinfo;
@@ -502,7 +499,10 @@ void W_Init(void)
   }
 
   if (!numlumps)
+  {
+    if (!MainLumpCache) return;
     I_Error ("W_Init: No files found");
+  }
 
   //jff 1/23/98
   // get all the sprites and flats into one marked block each
@@ -608,6 +608,11 @@ int W_LumpNumExists(int lump)
   return lump != LUMP_NOT_FOUND && lump < numlumps;
 }
 
+int W_PWADLumpNumExists(int lump)
+{
+  return W_LumpNumExists(lump) && (lumpinfo[lump].source == source_pwad);
+}
+
 int W_LumpNameExists(const char *name)
 {
   return W_CheckNumForName(name) != LUMP_NOT_FOUND;
@@ -616,6 +621,16 @@ int W_LumpNameExists(const char *name)
 int W_LumpNameExists2(const char *name, int ns)
 {
   return W_CheckNumForName2(name, ns) != LUMP_NOT_FOUND;
+}
+
+int W_PWADLumpNameExists(const char *name)
+{
+  return W_PWADLumpNumExists(W_CheckNumForName(name));
+}
+
+int W_PWADMapExists(void)
+{
+  return W_PWADLumpNameExists("THINGS") || W_PWADLumpNameExists("TEXTMAP");
 }
 
 void W_Shutdown(void)
@@ -632,4 +647,14 @@ void W_Shutdown(void)
       wadfiles[i].handle = -1;
     }
   }
+}
+
+void dsda_ResetInitLumpCache(void)
+{
+  W_Shutdown();
+
+  wadfiles = NULL;
+  numwadfiles = 0;
+  lumpinfo = NULL;
+  numlumps = 0;
 }
