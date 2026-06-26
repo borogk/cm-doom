@@ -165,7 +165,7 @@ unsigned long I_GetRandomTimeSeed(void)
  */
 const char* I_GetVersionString(char* buf, size_t sz)
 {
-  snprintf(buf,sz,PACKAGE_STRING_FULL);
+  snprintf(buf, sz, "%s v%s (based on %s)", PROJECT_NAME, PROJECT_VERSION, UPSTREAM_PROJECT_STRING);
   return buf;
 }
 
