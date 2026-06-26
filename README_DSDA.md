@@ -1,4 +1,4 @@
-# dsda-doom v0.27.5
+# dsda-doom v0.29.3
 This is a successor of prboom+ with many new features, including:
 - Heretic, Hexen, MBF21, Doom-in-Hexen, UDMF, and MAPINFO support
 - In-game console and scripting
@@ -10,12 +10,11 @@ This is a successor of prboom+ with many new features, including:
 - Advanced tools for TASing
 - Rewind
 
-Download windows releases [here](https://drive.google.com/drive/folders/1KMU1dY0HZrY5h2EyPzxxXuyH8DunAJV_?usp=sharing).
-
 ### Patch Notes
+- [v0.29](./patch_notes/v0.29.md)
+- [v0.28](./patch_notes/v0.28.md)
 - [v0.27](./patch_notes/v0.27.md)
 - [v0.26](./patch_notes/v0.26.md)
-- [v0.25](./patch_notes/v0.25.md)
 
 ### Launcher
 There is a dedicated launcher for this port available [here](https://github.com/Pedro-Beirao/dsda-launcher) by PBeGood4.
@@ -62,6 +61,10 @@ There is a dedicated launcher for this port available [here](https://github.com/
 ### Other Standards
 - [MBF21 v1.4](https://github.com/kraflab/mbf21)
 - [UMAPINFO v2.2](https://github.com/kraflab/umapinfo)
+
+### Maintainers
+- @fabiangreffrath, @rfomin, and @Pedro-Beirao 2024-
+- @kraflab 2020-2024
 
 ### Credits
 - The DSDA-Doom icon was designed by Mal (129thVisplane). Thanks!
