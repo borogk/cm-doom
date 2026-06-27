@@ -12,14 +12,14 @@ This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) that
 
 ### What is Cameraman?
 
-**Cameraman** is a tool for making short clips or movies in GZDoom, capturing gameplay and/or scenery.
+**Cameraman** is a tool for making short clips or movies in ZDoom family of source ports, capturing gameplay and/or scenery.
 Here is its page: [cameraman](https://github.com/borogk/cameraman).
 
 ### Why does this fork exist?
 
-This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of GZDoom.
+This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of ZDoom.
 
-The main Cameraman is a mod for GZDoom. Its main component is an editor, that allows to interactively draw
+The main Cameraman is a mod for ZDoom. Its main component is an editor, that allows to interactively draw
 different paths for camera and to instantly try them out in-engine.
 
 That editor also allows saving **camera profiles** as separate files, to load and re-play them later.
@@ -36,7 +36,7 @@ Playing these profiles in dsda-doom engine offers a few advantages:
   power, the output video is generated quicker than in real time.
 - **More faithful visuals.**
   Both software and OpenGL rendering modes look much closer to the original Doom for MS-DOS.
-  Original lighting in particular is challenging to reproduce in GZDoom, as well as some rendering artifacts.
+  Original lighting in particular is challenging to reproduce in ZDoom variants, as well as some rendering artifacts.
 
 ### How to use
 
