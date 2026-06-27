@@ -1,8 +1,14 @@
 # cm-doom
 
-This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom), which enables playback of Cameraman profiles.
+This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) that enables playback of Cameraman profiles.
 
-Downloads can be found on the [releases page](https://github.com/borogk/cm-doom/releases).
+### Installation
+
+| Platform | Instructions                                                                                 |
+|----------|----------------------------------------------------------------------------------------------|
+| Windows  | Download pre-built binaries from [releases page](https://github.com/borogk/cm-doom/releases) |
+| Linux    | Follow [build instructions for Linux](prboom2/INSTALL)                                       |
+| macOS    | Follow [build instructions for macOS](docs/guides/building_on_macos.md)                      |
 
 ### What is Cameraman?
 
@@ -19,6 +25,7 @@ different paths for camera and to instantly try them out in-engine.
 That editor also allows saving **camera profiles** as separate files, to load and re-play them later.
 
 Playing these profiles in dsda-doom engine offers a few advantages:
+
 - **Accurate demo playback.** 
   You can capture "cinematic" playthrough of almost any existing Doom speedrun,
   thanks to robust backwards compatibility.
@@ -47,7 +54,8 @@ If not specified, Cameraman functionality is disabled and all parameters describ
 `-cman_noflash` disables gun flashes lighting up the environment, in case you find them distracting.
 
 Examples:
-```shell
+
+```sh
 # Runs the game with a camera profile
 cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
 
@@ -87,3 +95,5 @@ Originally created by **borogk** in 2024.
 Based on [dsda-doom](https://github.com/kraflab/dsda-doom), see its contributors on the respective repository page.
 
 Original README is copied over to [README_DSDA.md](README_DSDA.md) out of courtesy.
+
+Big thanks to [Vytaan](https://www.youtube.com/@Vytaan) for testing.
