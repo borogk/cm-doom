@@ -856,6 +856,7 @@ static dboolean P_LookForPlayers(mobj_t *actor, dboolean allaround)
 {
   player_t *player;
   int stop, stopc, c;
+  dboolean unseen[MAX_MAXPLAYERS] = {0};
 
   if (raven) return Raven_P_LookForPlayers(actor, allaround);
 
@@ -929,8 +930,11 @@ static dboolean P_LookForPlayers(mobj_t *actor, dboolean allaround)
       if (player->health <= 0)
   continue;               // dead
 
-      if (!P_IsVisible(actor, player->mo, allaround))
-  continue;
+      if (unseen[actor->lastlook] || !P_IsVisible(actor, player->mo, allaround))
+      {
+        unseen[actor->lastlook] = true;
+        continue;
+      }
 
       P_SetTarget(&actor->target, player->mo);
 
@@ -984,6 +988,17 @@ static dboolean P_LookForMonsters(mobj_t *actor, dboolean allaround)
 
     current_actor = actor;
     current_allaround = allaround;
+
+    // There is a bug in cl11+ that causes the player to get added
+    //   to the monster friend list when damaged to below 50% health.
+    // This causes all monsters to believe friend monsters exist.
+    // The search algorithm is expensive and massively so on maps with many monsters.
+    // We still need to match rng calls for demo sync, but PIT_FindTarget is a no op.
+    if (((mobj_t *) cap->cnext)->player && cap->cnext == cap->cprev)
+    {
+      P_Random(pr_friends);
+      return false;
+    }
 
     // Search first in the immediate vicinity.
 
@@ -1899,6 +1914,11 @@ dboolean P_RaiseThing(mobj_t *corpse, mobj_t *raiser)
 
   dsda_WatchResurrection(corpse, raiser);
 
+  // Allow ghost monsters to be rendered translucent
+  if (corpse->height == 0 && corpse->radius == 0
+    && dsda_IntConfig(dsda_config_translucent_ghosts))
+      corpse->flags |= MF_TRANSLUCENT;  
+
   if (!((corpse->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
     totallive++;
 
@@ -1977,6 +1997,11 @@ static dboolean P_HealCorpse(mobj_t* actor, int radius, statenum_t healstate, sf
           corpsehit->flags = corpsehit->flags | MF_RESSURECTED;//e6y
 
           dsda_WatchResurrection(corpsehit, actor);
+
+          // Allow ghost monsters to be rendered translucent
+          if (corpsehit->height == 0 && corpsehit->radius == 0
+            && dsda_IntConfig(dsda_config_translucent_ghosts))
+              corpsehit->flags |= MF_TRANSLUCENT;  
 
           if (!((corpsehit->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
             totallive++;
@@ -2118,7 +2143,7 @@ void A_VileAttack(mobj_t *actor)
   // move the fire between the vile and the player
   fire->x = actor->target->x - FixedMul (24*FRACUNIT, finecosine[an]);
   fire->y = actor->target->y - FixedMul (24*FRACUNIT, finesine[an]);
-  P_RadiusAttack(fire, actor, 70, 70, true);
+  P_RadiusAttack(fire, actor, 70, 70, BF_DAMAGESOURCE | BF_HORIZONTAL);
 }
 
 //
@@ -2466,11 +2491,11 @@ void A_Explode(mobj_t *thingy)
 {
   int damage;
   int distance;
-  dboolean damageSelf;
+  int flags;
 
   damage = 128;
   distance = 128;
-  damageSelf = true;
+  flags = BF_DAMAGESOURCE;
 
   if (raven)
   {
@@ -2497,15 +2522,15 @@ void A_Explode(mobj_t *thingy)
         break;
       case HEXEN_MT_HAMMER_MISSILE:        // Fighter Hammer
         damage = 128;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_FSWORD_MISSILE:        // Fighter Runesword
         damage = 64;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_CIRCLEFLAME:   // Cleric Flame secondary flames
         damage = 20;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_SORCBALL1:     // Sorcerer balls
       case HEXEN_MT_SORCBALL2:
@@ -2525,17 +2550,17 @@ void A_Explode(mobj_t *thingy)
         break;
       case HEXEN_MT_DRAGON_FX2:
         damage = 80;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_MSTAFF_FX:
         damage = 64;
         distance = 192;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_MSTAFF_FX2:
         damage = 80;
         distance = 192;
-        damageSelf = false;
+        flags &= ~BF_DAMAGESOURCE;
         break;
       case HEXEN_MT_POISONCLOUD:
         damage = 4;
@@ -2551,7 +2576,7 @@ void A_Explode(mobj_t *thingy)
     }
   }
 
-  P_RadiusAttack(thingy, thingy->target, damage, distance, damageSelf);
+  P_RadiusAttack(thingy, thingy->target, damage, distance, flags);
   if (
     heretic ||
     (
@@ -3007,7 +3032,7 @@ void A_Detonate(mobj_t *mo)
       !prboom_comp[PC_APPLY_MBF_CODEPOINTERS_TO_ANY_COMPLEVEL].state)
     return;
 
-  P_RadiusAttack(mo, mo->target, mo->info->damage, mo->info->damage, true);
+  P_RadiusAttack(mo, mo->target, mo->info->damage, mo->info->damage, BF_DAMAGESOURCE);
 }
 
 //
@@ -3367,7 +3392,7 @@ void A_RadiusDamage(mobj_t *actor)
   if (!mbf21 || !actor->state)
     return;
 
-  P_RadiusAttack(actor, actor->target, actor->state->args[0], actor->state->args[1], true);
+  P_RadiusAttack(actor, actor->target, actor->state->args[0], actor->state->args[1], BF_DAMAGESOURCE);
 }
 
 //
@@ -3598,6 +3623,7 @@ void A_JumpIfFlagsSet(mobj_t* actor)
 void A_AddFlags(mobj_t* actor)
 {
   uint64_t flags, flags2;
+  dboolean update_blockmap;
 
   if (!mbf21 || !actor)
     return;
@@ -3605,8 +3631,19 @@ void A_AddFlags(mobj_t* actor)
   flags  = actor->state->args[0];
   flags2 = actor->state->args[1];
 
+  // unlink/relink the thing from the blockmap if
+  // the NOBLOCKMAP or NOSECTOR flags are added
+  update_blockmap = ((flags & MF_NOBLOCKMAP) && !(actor->flags & MF_NOBLOCKMAP))
+                    || ((flags & MF_NOSECTOR) && !(actor->flags & MF_NOSECTOR));
+
+  if (update_blockmap)
+    P_UnsetThingPosition(actor);
+
   actor->flags  |= flags;
   actor->flags2 |= flags2;
+
+  if (update_blockmap)
+    P_SetThingPosition(actor);
 }
 
 //
@@ -3618,6 +3655,7 @@ void A_AddFlags(mobj_t* actor)
 void A_RemoveFlags(mobj_t* actor)
 {
   uint64_t flags, flags2;
+  dboolean update_blockmap;
 
   if (!mbf21 || !actor)
     return;
@@ -3625,8 +3663,19 @@ void A_RemoveFlags(mobj_t* actor)
   flags  = actor->state->args[0];
   flags2 = actor->state->args[1];
 
+  // unlink/relink the thing from the blockmap if
+  // the NOBLOCKMAP or NOSECTOR flags are removed
+  update_blockmap = ((flags & MF_NOBLOCKMAP) && (actor->flags & MF_NOBLOCKMAP))
+                    || ((flags & MF_NOSECTOR) && (actor->flags & MF_NOSECTOR));
+
+  if (update_blockmap)
+    P_UnsetThingPosition(actor);
+
   actor->flags  &= ~flags;
   actor->flags2 &= ~flags2;
+
+  if (update_blockmap)
+    P_SetThingPosition(actor);
 }
 
 
@@ -4805,7 +4854,7 @@ void A_VolcBallImpact(mobj_t * ball)
         ball->z += 28 * FRACUNIT;
         //ball->momz = 3*FRACUNIT;
     }
-    P_RadiusAttack(ball, ball->target, 25, 25, true);
+    P_RadiusAttack(ball, ball->target, 25, 25, BF_DAMAGESOURCE);
     for (i = 0; i < 4; i++)
     {
         tiny = P_SpawnMobj(ball->x, ball->y, ball->z, HERETIC_MT_VOLCANOTBLAST);
@@ -6443,14 +6492,27 @@ static void DragonSeek(mobj_t * actor, angle_t thresh, angle_t turnMax)
                                             actor->target->y);
             for (i = 0; i < 5; i++)
             {
+                int mo_x, mo_y;
                 if (!target->special_args[i])
                 {
                     continue;
                 }
                 search = -1;
                 mo = P_FindMobjFromTID(target->special_args[i], &search);
+                // [crispy] fix wyvern + porkalator bug
+                if (mo == NULL)
+                {
+                    lprintf(LO_WARN, "DragonSeek: P_FindMobjFromTID() returned NULL mobj!\n");
+                    mo_x = 0;
+                    mo_y = 0;
+                }
+                else
+                {
+                    mo_x = mo->x;
+                    mo_y = mo->y;
+                }
                 angleToSpot = R_PointToAngle2(actor->x, actor->y,
-                                              mo->x, mo->y);
+                                              mo_x, mo_y);
                 if (abs((int) angleToSpot - (int) angleToTarget) < bestAngle)
                 {
                     bestAngle = abs((int) angleToSpot - (int) angleToTarget);

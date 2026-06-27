@@ -24,6 +24,7 @@
 #include "gl_struct.h"
 #include "lprintf.h"
 #include "i_main.h"
+#include "i_video.h"
 
 #include "dsda/args.h"
 #include "dsda/build.h"
@@ -32,10 +33,10 @@
 #include "dsda/features.h"
 #include "dsda/key_frame.h"
 #include "dsda/map_format.h"
+#include "dsda/skip.h"
 
 #include "settings.h"
 
-int dsda_tas;
 int dsda_skip_next_wipe;
 
 void dsda_InitSettings(void) {
@@ -116,15 +117,15 @@ int dsda_CompatibilityLevel(void) {
   return UNSPECIFIED_COMPLEVEL;
 }
 
-void dsda_SetTas(void) {
-  dsda_tas = true;
+void dsda_SetTas(dboolean t) {
+  dsda_UpdateIntConfig(dsda_config_strict_mode, !t, true);
 }
 
-dboolean dsda_ViewBob(void) {
+int dsda_ViewBob(void) {
   return dsda_IntConfig(dsda_config_viewbob);
 }
 
-dboolean dsda_WeaponBob(void) {
+int dsda_WeaponBob(void) {
   return dsda_IntConfig(dsda_config_weaponbob);
 }
 
@@ -145,15 +146,17 @@ dboolean dsda_VertMouse(void) {
 }
 
 dboolean dsda_StrictMode(void) {
-  return dsda_IntConfig(dsda_config_strict_mode) && demorecording && !dsda_tas;
+  return dsda_IntConfig(dsda_config_strict_mode) && demorecording;
 }
 
 dboolean dsda_MuteSfx(void) {
-  return dsda_IntConfig(dsda_config_mute_sfx);
+  return dsda_IntConfig(dsda_config_mute_sfx) ||
+         (!I_WindowFocused() && dsda_IntConfig(dsda_config_mute_unfocused_window));
 }
 
 dboolean dsda_MuteMusic(void) {
-  return dsda_IntConfig(dsda_config_mute_music);
+  return dsda_IntConfig(dsda_config_mute_music) ||
+         (!I_WindowFocused() && dsda_IntConfig(dsda_config_mute_unfocused_window));
 }
 
 dboolean dsda_ProcessCheatCodes(void) {
@@ -181,7 +184,7 @@ dboolean dsda_SwitchWhenAmmoRunsOut(void) {
 }
 
 dboolean dsda_SkipQuitPrompt(void) {
-  return dsda_IntConfig(dsda_config_skip_quit_prompt);
+  return dsda_IntConfig(dsda_config_skip_quit_prompt) || dsda_SkipMode();
 }
 
 dboolean dsda_TrackSplits(void) {

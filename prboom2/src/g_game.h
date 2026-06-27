@@ -112,6 +112,11 @@ extern char savedescription[SAVEDESCLEN];  // Description to save in savegame
 /* cph - compatibility level strings */
 extern const char * comp_lev_str[];
 
+// Hexen Skill Strings
+extern const char * hexen_skill_fighter[5];
+extern const char * hexen_skill_cleric[5];
+extern const char * hexen_skill_mage[5];
+
 // e6y
 // There is a new command-line switch "-shorttics".
 // This makes it possible to practice routes and tricks
@@ -121,8 +126,8 @@ extern const char * comp_lev_str[];
 extern int shorttics;
 extern int longtics;
 
-// automatic pistol start when advancing from one level to the next
-extern int pistolstart;
+// Allows use of HELP2 screen for PWADs under DOOM 1
+extern int pwad_help2_check;
 
 // hexen
 

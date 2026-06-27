@@ -95,8 +95,6 @@ const int tran_filter_pct = 66;
 GLfloat gl_texture_filter_anisotropic;
 
 extern int gld_paletteIndex;
-extern int playpal_black;
-extern int playpal_white;
 
 //sprites
 const float gl_spriteclip_threshold_f = 10.f / MAP_COEFF;
@@ -284,7 +282,7 @@ void gld_MapDrawSubsectors(player_t *plr, int fx, int fy, fixed_t mx, fixed_t my
   float coord_scale;
   GLTexture *gltexture;
 
-  alpha = (float)(automap_overlay ? map_textured_overlay_trans : map_textured_trans) / 100.0f;
+  alpha = (float)((automap_overlay > 0) ? map_textured_overlay_trans : map_textured_trans) / 100.0f;
   if (alpha == 0)
     return;
 
@@ -492,7 +490,20 @@ void gld_EndAutomapDraw(void)
   glsl_PopNullShader();
 }
 
-void gld_DrawNumPatch_f(float x, float y, int lump, int cm, enum patch_translation_e flags)
+void gld_BeginMenuDraw(void)
+{
+  gld_InitColormapTextures(true);
+  glsl_PushNullShader();
+  gl_menu_lightmode_indexed = true;
+}
+
+void gld_EndMenuDraw(void)
+{
+  gl_menu_lightmode_indexed = false;
+  glsl_PopNullShader();
+}
+
+void gld_DrawNumPatch_f(float x, float y, int lump, dboolean center, int cm, enum patch_translation_e flags)
 {
   GLTexture *gltexture;
   float fU1,fU2,fV1,fV2;
@@ -532,8 +543,11 @@ void gld_DrawNumPatch_f(float x, float y, int lump, int cm, enum patch_translati
   }
 
   // [FG] automatically center wide patches without horizontal offset
-  if (gltexture->width > 320 && leftoffset == 0)
-    x -= (float)(gltexture->width - 320) / 2;
+  if (center)
+  {
+    if (gltexture->width > 320 && leftoffset == 0)
+      x -= (float)(gltexture->width - 320) / 2;
+  }
 
   if (flags & VPT_STRETCH_MASK)
   {
@@ -568,9 +582,9 @@ void gld_DrawNumPatch_f(float x, float y, int lump, int cm, enum patch_translati
   glEnd();
 }
 
-void gld_DrawNumPatch(int x, int y, int lump, int cm, enum patch_translation_e flags)
+void gld_DrawNumPatch(int x, int y, int lump, dboolean center, int cm, enum patch_translation_e flags)
 {
-  gld_DrawNumPatch_f((float)x, (float)y, lump, cm, flags);
+  gld_DrawNumPatch_f((float)x, (float)y, lump, center, cm, flags);
 }
 
 void gld_FillRaw(int lump, int x, int y, int src_width, int src_height, int dst_width, int dst_height, enum patch_translation_e flags)
@@ -591,15 +605,6 @@ void gld_FillRaw(int lump, int x, int y, int src_width, int src_height, int dst_
   if (!gltexture)
     return;
 
-  // [XA] NOTE: this flag actually means "tile", not stretch...
-  if (flags & VPT_STRETCH)
-  {
-    x = x * SCREENWIDTH / 320;
-    y = y * SCREENHEIGHT / 200;
-    dst_width = dst_width * SCREENWIDTH / 320;
-    dst_height = dst_height * SCREENHEIGHT / 200;
-  }
-
   fU1 = 0;
   fV1 = 0;
 
@@ -608,6 +613,13 @@ void gld_FillRaw(int lump, int x, int y, int src_width, int src_height, int dst_
   {
     fU2 = 1.0f;
     fV2 = 1.0f;
+  }
+  else if (flags & VPT_STRETCH)
+  {
+    stretch_param_t *params = dsda_StretchParams(flags);
+
+    fU2 = (float)dst_width / (float)gltexture->realtexwidth / (params->video->width / 320.f);
+    fV2 = (float)dst_height / (float)gltexture->realtexheight / (params->video->height / 200.f);
   }
   else
   {
@@ -670,7 +682,7 @@ void gld_FillPatch(int lump, int x, int y, int width, int height, enum patch_tra
 // use colormaps[0] as a fallback in such a case.
 const lighttable_t *gld_GetActiveColormap()
 {
-  if (V_IsAutomapLightmodeIndexed())
+  if (V_IsAutomapLightmodeIndexed() || V_IsMenuLightmodeIndexed())
     return colormaps[0];
   else if (fixedcolormap)
     return fixedcolormap;
@@ -718,11 +730,11 @@ void gld_DrawLine_f(float x0, float y0, float x1, float y1, int BaseColor)
   unsigned char a;
   map_line_t *line;
 
-  a = (automap_overlay ? map_lines_overlay_trans * 255 / 100 : 255);
+  a = ((automap_overlay == 1) ? map_lines_overlay_trans * 255 / 100 : 255);
   if (a == 0)
     return;
 
-  color = gld_LookupIndexedColor(BaseColor, V_IsUILightmodeIndexed() || V_IsAutomapLightmodeIndexed());
+  color = gld_LookupIndexedColor(BaseColor, V_IsUILightmodeIndexed() || V_IsAutomapLightmodeIndexed() || V_IsMenuLightmodeIndexed());
 
   line = M_ArrayGetNewItem(&map_lines, sizeof(line[0]));
 
@@ -758,7 +770,7 @@ void gld_StartFuzz(int sprite, float ratio)
   // for indexed lightmode, the fuzz color needs to take
   // pain/item fades and gamma into account, so do a color
   // lookup based on the closest-to-black color index.
-  color = gld_LookupIndexedColor(invul_cm ? playpal_white : playpal_black, true);
+  color = gld_LookupIndexedColor(invul_cm ? playpal_lightest : playpal_darkest, true);
   glColor3f((float)color.r/255.0f,
             (float)color.g/255.0f,
             (float)color.b/255.0f);
@@ -830,7 +842,7 @@ void gld_DrawWeapon(int weaponlump, vissprite_t *vis, int lightlevel)
 
 void gld_FillBlock(int x, int y, int width, int height, int col)
 {
-  color_rgb_t color = gld_LookupIndexedColor(col, V_IsUILightmodeIndexed() || V_IsAutomapLightmodeIndexed());
+  color_rgb_t color = gld_LookupIndexedColor(col, V_IsUILightmodeIndexed() || V_IsAutomapLightmodeIndexed() || V_IsMenuLightmodeIndexed());
 
   glsl_PushNullShader();
 
@@ -847,6 +859,31 @@ void gld_FillBlock(int x, int y, int width, int height, int col)
     glVertex2i( x+width, y+height );
   glEnd();
   glColor3f(1.0f,1.0f,1.0f);
+  gld_EnableTexture2D(GL_TEXTURE0_ARB, true);
+
+  glsl_PopNullShader();
+}
+
+void gld_DrawShaded(int x, int y, int width, int height, int shade)
+{
+  color_rgb_t color = gld_LookupIndexedColor(playpal_darkest, V_IsAutomapLightmodeIndexed() || V_IsMenuLightmodeIndexed());
+
+  glsl_PushNullShader();
+
+  gld_EnableTexture2D(GL_TEXTURE0_ARB, false);
+
+  glColor4f((float)color.r/255.0f,
+            (float)color.g/255.0f,
+            (float)color.b/255.0f,
+            (float)shade/30);
+
+  glBegin(GL_TRIANGLE_STRIP);
+    glVertex2i( x, y );
+    glVertex2i( x, y+height );
+    glVertex2i( x+width, y );
+    glVertex2i( x+width, y+height );
+  glEnd();
+  glColor4f(1.0f,1.0f,1.0f,1.0f);
   gld_EnableTexture2D(GL_TEXTURE0_ARB, true);
 
   glsl_PopNullShader();
@@ -873,8 +910,8 @@ unsigned char *gld_ReadScreen(void)
 
   int src_row, dest_row, size, pixels_per_row;
 
-  pixels_per_row = gl_window_width * 3;
-  size = pixels_per_row * gl_window_height;
+  pixels_per_row = renderer_rect.w * 3;
+  size = pixels_per_row * renderer_rect.h;
   if (!scr || size > scr_size)
   {
     scr_size = size;
@@ -889,12 +926,12 @@ unsigned char *gld_ReadScreen(void)
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
     glFlush();
-    glReadPixels(0, 0, gl_window_width, gl_window_height, GL_RGB, GL_UNSIGNED_BYTE, scr);
+    glReadPixels(0, 0, renderer_rect.w, renderer_rect.h, GL_RGB, GL_UNSIGNED_BYTE, scr);
 
     glPixelStorei(GL_PACK_ALIGNMENT, pack_aligment);
 
     // GL textures are bottom up, so copy the rows in reverse to flip vertically
-    for (src_row = gl_window_height - 1, dest_row = 0; src_row >= 0; --src_row, ++dest_row)
+    for (src_row = renderer_rect.h - 1, dest_row = 0; src_row >= 0; --src_row, ++dest_row)
     {
       memcpy(&buffer[dest_row * pixels_per_row],
               &scr[src_row * pixels_per_row],
@@ -1077,9 +1114,9 @@ void gld_EndDrawScene(void)
     glBegin(GL_TRIANGLE_STRIP);
     {
       glTexCoord2f(0.0f, 1.0f); glVertex2f(0.0f, 0.0f);
-      glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, gl_window_height);
-      glTexCoord2f(1.0f, 1.0f); glVertex2f((float)gl_window_width, 0.0f);
-      glTexCoord2f(1.0f, 0.0f); glVertex2f((float)gl_window_width, (float)gl_window_height);
+      glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, renderer_rect.h);
+      glTexCoord2f(1.0f, 1.0f); glVertex2f((float)renderer_rect.w, 0.0f);
+      glTexCoord2f(1.0f, 0.0f); glVertex2f((float)renderer_rect.w, (float)renderer_rect.h);
     }
     glEnd();
 
@@ -1177,8 +1214,8 @@ static void gld_DrawWall(GLWall *wall)
 static void gld_CalculateWallY(GLWall *wall, float *lineheight,
                                fixed_t floor_height, fixed_t ceiling_height)
 {
-  wall->ytop = (float) ceiling_height / (float) MAP_SCALE + SMALLDELTA;
-  wall->ybottom = (float) floor_height / (float) MAP_SCALE - SMALLDELTA;
+  wall->ytop = (float) ceiling_height / (float) MAP_SCALE;
+  wall->ybottom = (float) floor_height / (float) MAP_SCALE;
   *lineheight = (float) fabs((float) (ceiling_height - floor_height) / FRACUNIT);
 }
 
@@ -1288,14 +1325,14 @@ void gld_AddWall(seg_t *seg)
 
     if (frontsector->ceilingpic==skyflatnum)
     {
-      wall.ytop=MAXCOORD;
+      wall.ytop=MAXCOORD*2; // Simply using MAXCOORD would result in HOM when the floor is at a height close to the limit
       wall.ybottom=(float)frontsector->ceilingheight/MAP_SCALE;
       gld_AddSkyTexture(&wall, frontsector->ceilingsky, frontsector->ceilingsky, SKY_CEILING);
     }
     if (frontsector->floorpic==skyflatnum)
     {
       wall.ytop=(float)frontsector->floorheight/MAP_SCALE;
-      wall.ybottom=-MAXCOORD;
+      wall.ybottom=-MAXCOORD*2;  // Simply using MAXCOORD would result in HOM when the ceiling is at a height close to the limit
       gld_AddSkyTexture(&wall, frontsector->floorsky, frontsector->floorsky, SKY_FLOOR);
     }
     temptex=gld_RegisterTexture(texturetranslation[seg->sidedef->midtexture], true, false, true, false);
@@ -1368,7 +1405,7 @@ void gld_AddWall(seg_t *seg)
     wall.yscale = (float) seg->sidedef->scaley_top / FRACUNIT;
     if (frontsector->ceilingpic==skyflatnum)// || backsector->ceilingpic==skyflatnum)
     {
-      wall.ytop= MAXCOORD;
+      wall.ytop= MAXCOORD*2;
       if (
           // e6y
           // There is no more HOM in the starting area on Memento Mori map29 and on map30.
@@ -1433,8 +1470,8 @@ void gld_AddWall(seg_t *seg)
           !(backsector->flags & NULL_SECTOR) &&
           backsector->floorheight < backsector->ceilingheight)
         {
-          wall.ytop=((float)(ceiling_height)/(float)MAP_SCALE)+SMALLDELTA;
-          wall.ybottom=((float)(floor_height)/(float)MAP_SCALE)-SMALLDELTA;
+          wall.ytop=((float)(ceiling_height)/(float)MAP_SCALE);
+          wall.ybottom=((float)(floor_height)/(float)MAP_SCALE);
           if (wall.ybottom >= zCamera)
           {
             wall.flag=GLDWF_TOPFLUD;
@@ -1602,10 +1639,11 @@ bottomtexture:
     wall.yscale = (float) seg->sidedef->scaley_bottom / FRACUNIT;
     if (frontsector->floorpic==skyflatnum)
     {
-      wall.ybottom=-MAXCOORD;
+      wall.ybottom=-MAXCOORD*2;
       if (
           (backsector->ceilingheight==backsector->floorheight) &&
-          (backsector->floorpic==skyflatnum)
+          (backsector->floorpic==skyflatnum) &&
+          (bottomtexture == NO_TEXTURE)
          )
       {
         wall.ytop=(float)backsector->floorheight/MAP_SCALE;
@@ -1639,8 +1677,8 @@ bottomtexture:
         !(backsector->flags & NULL_SECTOR) &&
         backsector->floorheight < backsector->ceilingheight)
       {
-        wall.ytop=((float)(ceiling_height)/(float)MAP_SCALE)+SMALLDELTA;
-        wall.ybottom=((float)(floor_height)/(float)MAP_SCALE)-SMALLDELTA;
+        wall.ytop=((float)(ceiling_height)/(float)MAP_SCALE);
+        wall.ybottom=((float)(floor_height)/(float)MAP_SCALE);
         if (wall.ytop <= zCamera)
         {
           wall.flag = GLDWF_BOTFLUD;

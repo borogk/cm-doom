@@ -37,6 +37,7 @@
 #include "p_map.h"
 #include "p_inter.h"
 #include "p_pspr.h"
+#include "p_user.h"
 #include "p_enemy.h"
 #include "p_tick.h"
 #include "m_random.h"
@@ -47,7 +48,10 @@
 #include "g_game.h"
 #include "lprintf.h"
 #include "e6y.h"//e6y
+
 #include "dsda.h"
+#include "dsda/aim.h"
+#include "dsda/excmd.h"
 
 #define LOWERSPEED   (FRACUNIT*6)
 #define RAISESPEED   (FRACUNIT*6)
@@ -298,6 +302,10 @@ int P_SwitchWeapon(player_t *player)
   currentweapon = player->readyweapon;
   newweapon = currentweapon;
   i = NUMWEAPONS + 1;   // killough 5/2/98
+
+  // Fix weapon switch logic in vanilla (example: chainsaw with ammo)
+  if (demo_compatibility)
+    currentweapon = newweapon = wp_nochange;
 
   // killough 2/8/98: follow preferences and fix BFG/SSG bugs
 
@@ -709,7 +717,10 @@ void A_Lower(player_t *player, pspdef_t *psp)
     return;
   }
 
-  player->readyweapon = player->pendingweapon;
+  if (player->pendingweapon < NUMWEAPONS || !mbf21)
+  {
+    player->readyweapon = player->pendingweapon;
+  }
 
   P_BringUpWeapon(player);
 }
@@ -1007,27 +1018,11 @@ fixed_t bulletslope;
 
 static void P_BulletSlope(mobj_t *mo)
 {
-  angle_t an = mo->angle;    // see which target is to be aimed at
+  aim_t aim;
 
-  if (comperr(comperr_freeaim))
-    bulletslope = finetangent[(ANG90 - mo->pitch) >> ANGLETOFINESHIFT];
-  else
-  {
-    /* killough 8/2/98: make autoaiming prefer enemies */
-    uint64_t mask = mbf_features ? MF_FRIEND : 0;
+  dsda_PlayerAimBad(mo, mo->angle, &aim, mbf_features ? MF_FRIEND : 0);
 
-    do
-    {
-      bulletslope = P_AimLineAttack(mo, an, 16*64*FRACUNIT, mask);
-      if (!linetarget)
-        bulletslope = P_AimLineAttack(mo, an += 1<<26, 16*64*FRACUNIT, mask);
-      if (!linetarget)
-        bulletslope = P_AimLineAttack(mo, an -= 2<<26, 16*64*FRACUNIT, mask);
-      if (heretic && !linetarget)
-        bulletslope = (mo->player->lookdir << FRACBITS) / 173;
-    }
-    while (mask && (mask=0, !linetarget));  /* killough 8/2/98 */
-  }
+  bulletslope = aim.slope;
 }
 
 //
@@ -1805,11 +1800,11 @@ void A_FireMacePL1B(player_t * player, pspdef_t * psp)
     ball = P_SpawnMobj(pmo->x, pmo->y, pmo->z + 28 * FRACUNIT
                        - FOOTCLIPSIZE * (pmo->flags2 & 1), HERETIC_MT_MACEFX2);
 
-    ball->momz = 2 * FRACUNIT + ((player->lookdir) << (FRACBITS - 5));
+    ball->momz = 2 * FRACUNIT + (dsda_PlayerLookDir(player) << (FRACBITS - 5));
     angle = pmo->angle;
     P_SetTarget(&ball->target, pmo);
     ball->angle = angle;
-    ball->z += (player->lookdir) << (FRACBITS - 4);
+    ball->z += dsda_PlayerLookDir(player) << (FRACBITS - 4);
     angle >>= ANGLETOFINESHIFT;
     ball->momx = (pmo->momx >> 1)
         + FixedMul(ball->info->speed, finecosine[angle]);
@@ -1945,7 +1940,7 @@ void A_FireMacePL2(player_t * player, pspdef_t * psp)
     {
         mo->momx += player->mo->momx;
         mo->momy += player->mo->momy;
-        mo->momz = 2 * FRACUNIT + ((player->lookdir) << (FRACBITS - 5));
+        mo->momz = 2 * FRACUNIT + (dsda_PlayerLookDir(player) << (FRACBITS - 5));
         if (linetarget)
         {
             P_SetTarget(&mo->special1.m, linetarget);
@@ -2297,12 +2292,12 @@ void A_FirePhoenixPL2(player_t * player, pspdef_t * psp)
     angle = pmo->angle;
     x = pmo->x + (P_SubRandom() << 9);
     y = pmo->y + (P_SubRandom() << 9);
-    z = pmo->z + 26 * FRACUNIT + ((player->lookdir) << FRACBITS) / 173;
+    z = pmo->z + 26 * FRACUNIT + dsda_PlayerSlope(player);
     if (pmo->flags2 & MF2_FEETARECLIPPED)
     {
         z -= FOOTCLIPSIZE;
     }
-    slope = ((player->lookdir) << FRACBITS) / 173 + (FRACUNIT / 10);
+    slope = dsda_PlayerSlope(player) + (FRACUNIT / 10);
     mo = P_SpawnMobj(x, y, z, HERETIC_MT_PHOENIXFX2);
     P_SetTarget(&mo->target, pmo);
     mo->angle = angle;
@@ -2415,15 +2410,15 @@ void A_GauntletAttack(player_t * player, pspdef_t * psp)
 void P_RepositionMace(mobj_t * mo)
 {
     int spot;
-    subsector_t *ss;
+    sector_t *sec;
 
     P_UnsetThingPosition(mo);
     spot = P_Random(pr_heretic) % MaceSpotCount;
     mo->x = MaceSpots[spot].x;
     mo->y = MaceSpots[spot].y;
-    ss = R_PointInSubsector(mo->x, mo->y);
-    mo->z = mo->floorz = ss->sector->floorheight;
-    mo->ceilingz = ss->sector->ceilingheight;
+    sec = R_PointInSector(mo->x, mo->y);
+    mo->z = mo->floorz = sec->floorheight;
+    mo->ceilingz = sec->ceilingheight;
     P_SetThingPosition(mo);
 }
 

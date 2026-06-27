@@ -31,7 +31,7 @@ typedef struct {
 } cr_range_t;
 
 // Default values - overridden by DSDACR lump
-cr_range_t cr_range[CR_LIMIT] = {
+cr_range_t cr_range[CR_HUD_LIMIT] = {
   [CR_DEFAULT]   = { 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF },
   [CR_BRICK]     = { 0x47, 0x00, 0x00, 0xFF, 0xB8, 0xB8 },
   [CR_TAN]       = { 0x33, 0x2B, 0x13, 0xFF, 0xEB, 0xDF },
@@ -73,7 +73,7 @@ static void dsda_RegisterFontLightness(double lightness) {
     cr_font.light_upper_bound = lightness;
 }
 
-static void dsda_CalculateFontBounds(const char *playpal) {
+static void dsda_CalculateFontBounds(const byte* playpal) {
   int i, j;
   const byte* lump;
   const byte* p;
@@ -139,7 +139,7 @@ static void dsda_LoadCRLump(void) {
     if (sscanf(line, "%d %i %i %i %i %i %i", &i, &r1, &g1, &b1, &r2, &g2, &b2) != 7)
       I_Error("DSDACR lump has unknown format!");
 
-    if (i < 1 || i >= CR_LIMIT)
+    if (i < 1 || i >= CR_HUD_LIMIT)
       I_Error("DSDACR index %d is out of bounds!", i);
 
     if (r1 < 0 || g1 < 0 || b1 < 0 || r2 < 0 || g2 < 0 || b2 < 0 ||
@@ -158,12 +158,46 @@ static void dsda_LoadCRLump(void) {
   Z_Free(lump);
 }
 
+typedef struct {
+  const char* name;
+  int fallback;
+} blood_load_t;
+
+static blood_load_t blood_data[CR_LIMIT - CR_BLOOD] = {
+  { "CRGRAY", CR_GRAY },
+  { "CRGREEN", CR_GREEN },
+  { "CRBLUE2", CR_BLUE },
+  { "CRYELLOW", CR_YELLOW },
+  { "CRBLACK", CR_BLACK },
+  { "CRPURPLE", CR_PURPLE },
+  { "CRWHITE", CR_WHITE },
+  { "CRORANGE", CR_ORANGE },
+};
+
+static void dsda_LoadCRLumps(byte* buffer) {
+  int i;
+  byte* blood_buffer;
+
+  blood_buffer = buffer + CR_BLOOD * 256;
+
+  for (i = 0; i < CR_LIMIT - CR_BLOOD; ++i) {
+    int lump;
+
+    lump = W_CheckNumForName(blood_data[i].name);
+    if (lump != LUMP_NOT_FOUND && W_LumpLength(lump) == 256)
+      memcpy(blood_buffer + i * 256, W_LumpByNum(lump), 256);
+    else
+      memcpy(blood_buffer + i * 256, buffer + blood_data[i].fallback * 256, 256);
+  }
+}
+
 byte* dsda_GenerateCRTable(void) {
   int cr_i;
   int orig_i;
   int check_i;
   byte* buffer;
   const byte* playpal;
+  int dark_i;
 
   dsda_LoadCRLump();
 
@@ -188,51 +222,61 @@ byte* dsda_GenerateCRTable(void) {
     if (orig_i == 176)
       length = 1;
 
-    for (cr_i = 0; cr_i < CR_LIMIT; ++cr_i) {
-      int target_r, target_g, target_b;
-      int best_i = 0;
-      int best_dist = INT_MAX;
+    for (dark_i = 0; dark_i < 2; ++dark_i) {
+      for (cr_i = 0; cr_i < CR_DARKEN; ++cr_i) {
+        int target_r, target_g, target_b;
+        int best_i = 0;
+        int best_dist = INT_MAX;
 
-      target_r = cr_range[cr_i].r1 +
-                 (int) (length * (cr_range[cr_i].r2 - cr_range[cr_i].r1));
-      target_g = cr_range[cr_i].g1 +
-                 (int) (length * (cr_range[cr_i].g2 - cr_range[cr_i].g1));
-      target_b = cr_range[cr_i].b1 +
-                 (int) (length * (cr_range[cr_i].b2 - cr_range[cr_i].b1));
+        target_r = cr_range[cr_i].r1 +
+                  (int) (length * (cr_range[cr_i].r2 - cr_range[cr_i].r1));
+        target_g = cr_range[cr_i].g1 +
+                  (int) (length * (cr_range[cr_i].g2 - cr_range[cr_i].g1));
+        target_b = cr_range[cr_i].b1 +
+                  (int) (length * (cr_range[cr_i].b2 - cr_range[cr_i].b1));
 
-      for (check_i = 0; check_i < 768; check_i += 3) {
-        int dist;
-        int dist_r, dist_g, dist_b;
-        int avg_r;
-
-        avg_r = (target_r + playpal[check_i + 0]) / 2;
-        dist_r = target_r - playpal[check_i + 0];
-        dist_g = target_g - playpal[check_i + 1];
-        dist_b = target_b - playpal[check_i + 2];
-
-        // This equation seems to fix issues with red-dominant translation,
-        // e.g., aaliens CR_BRICK, which has artifacts in the second equation.
-        //
-        // I experimented with more "sophisticated" approaches,
-        // but they don't seem to do well with common palettes.
-        if (target_r > target_g && target_r > target_b)
-          dist = (((512 + avg_r) * dist_r * dist_r) >> 8) +
-                 4 * dist_g * dist_g +
-                 (((767 - avg_r) * dist_b * dist_b) >> 8);
-        else
-          dist = dist_r * dist_r +
-                 dist_g * dist_g +
-                 dist_b * dist_b;
-
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_i = check_i / 3;
+        if (dark_i) {
+          target_r /= 2;
+          target_g /= 2;
+          target_b /= 2;
         }
-      }
 
-      buffer[cr_i * 256 + orig_i] = best_i;
+        for (check_i = 0; check_i < 768; check_i += 3) {
+          int dist;
+          int dist_r, dist_g, dist_b;
+          int avg_r;
+
+          avg_r = (target_r + playpal[check_i + 0]) / 2;
+          dist_r = target_r - playpal[check_i + 0];
+          dist_g = target_g - playpal[check_i + 1];
+          dist_b = target_b - playpal[check_i + 2];
+
+          // This equation seems to fix issues with red-dominant translation,
+          // e.g., aaliens CR_BRICK, which has artifacts in the second equation.
+          //
+          // I experimented with more "sophisticated" approaches,
+          // but they don't seem to do well with common palettes.
+          if (target_r > target_g && target_r > target_b)
+            dist = (((512 + avg_r) * dist_r * dist_r) >> 8) +
+                  4 * dist_g * dist_g +
+                  (((767 - avg_r) * dist_b * dist_b) >> 8);
+          else
+            dist = dist_r * dist_r +
+                  dist_g * dist_g +
+                  dist_b * dist_b;
+
+          if (dist < best_dist) {
+            best_dist = dist;
+            best_i = check_i / 3;
+          }
+        }
+
+        buffer[(dark_i ? CR_DARKEN * 256 : 0) + cr_i * 256 + orig_i] = best_i;
+      }
     }
   }
+
+  dsda_LoadCRLumps(buffer);
 
   return buffer;
 }

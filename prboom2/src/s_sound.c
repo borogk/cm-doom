@@ -156,6 +156,14 @@ void S_ResetSfxVolume(void)
     sfx_volume = snd_SfxVolume;
 }
 
+void S_ResetVolume(void)
+{
+  void I_ResetMusicVolume(void);
+
+  S_ResetSfxVolume();
+  I_ResetMusicVolume();
+}
+
 // Initializes sound stuff, including volume
 // Sets channels, SFX and music volume,
 //  allocates channel buffer, sets S_sfx lookup.
@@ -194,6 +202,10 @@ void S_Init(void)
         S_sfx[i].lumpnum = -1;
 
       dsda_CacheSoundLumps();
+
+      lprintf(LO_DEBUG, " Precaching all sound effects... ");
+      I_CacheSounds();
+      lprintf(LO_DEBUG, "done\n");
 
       // {
       //   int i;
@@ -267,20 +279,20 @@ void S_Start(void)
   // start new music for the level
   mus_paused = 0;
 
-  dsda_MapMusic(&mnum, &muslump);
+  dsda_MapMusic(&mnum, &muslump, gameepisode, gamemap);
 
   if (muslump >= 0)
   {
     musinfo.items[0] = muslump;
+  }
 
+  if (musinfo.items[0] != -1)
+  {
     if (!dsda_StartQueuedMusic())
-      S_ChangeMusInfoMusic(muslump, true);
+      S_ChangeMusInfoMusic(musinfo.items[0], true);
   }
   else
   {
-    memset(&musinfo, 0, sizeof(musinfo));
-    musinfo.items[0] = -1;
-
     if (!dsda_StartQueuedMusic())
       S_ChangeMusic(mnum, true);
   }
@@ -308,17 +320,21 @@ void S_StartSoundAtVolume(void *origin_p, int sfx_id, int volume, int loop_timeo
   sfx_params_t params;
   sfxinfo_t *sfx;
   mobj_t *origin;
+  mobj_t *listener;
 
   if (raven) return Raven_S_StartSoundAtVolume(origin_p, sfx_id, volume, loop_timeout);
 
   origin = (mobj_t *) origin_p;
+  listener = GetSoundListener();
 
   //jff 1/22/98 return if sound is not enabled
   if (nosfxparm)
     return;
 
   // killough 4/25/98
-  if (sfx_id & PICKUP_SOUND ||
+  if (sfx_id == g_sfx_secret)
+    params.sfx_class = sfx_class_secret;
+  else if (sfx_id & PICKUP_SOUND ||
       sfx_id == sfx_oof ||
       (compatibility_level >= prboom_2_compatibility && sfx_id == sfx_noway))
     params.sfx_class = sfx_class_important;
@@ -355,17 +371,15 @@ void S_StartSoundAtVolume(void *origin_p, int sfx_id, int volume, int loop_timeo
   // Check to see if it is audible, modify the params
   // killough 3/7/98, 4/25/98: code rearranged slightly
 
-  if (!origin || (origin == players[displayplayer].mo && walkcamera.type < 2)) {
+  if (!origin || origin == listener) {
     params.separation = NORM_SEP;
     params.volume *= 8;
     params.priority *= 10;
   } else
-    if (!S_AdjustSoundParams(players[displayplayer].mo, origin, NULL, &params))
+    if (!S_AdjustSoundParams(listener, origin, NULL, &params))
       return;
-    else
-      if ( origin->x == players[displayplayer].mo->x &&
-           origin->y == players[displayplayer].mo->y)
-        params.separation = NORM_SEP;
+    else if (origin->x == listener->x && origin->y == listener->y)
+      params.separation = NORM_SEP;
 
   if (dsda_BlockSFX(sfx)) return;
 
@@ -821,16 +835,8 @@ int S_AdjustSoundParams(mobj_t *listener, mobj_t *source, channel_t *channel, sf
 
   // calculate the distance to sound origin
   //  and clip it if necessary
-  if (walkcamera.type > 1)
-  {
-    adx = D_abs(walkcamera.x - source->x);
-    ady = D_abs(walkcamera.y - source->y);
-  }
-  else
-  {
-    adx = D_abs(listener->x - source->x);
-    ady = D_abs(listener->y - source->y);
-  }
+  adx = D_abs(listener->x - source->x);
+  ady = D_abs(listener->y - source->y);
 
   approx_dist = P_AproxDistance(adx, ady);
   approx_dist >>= FRACBITS;
@@ -930,9 +936,11 @@ static int S_getChannel(void *origin, sfxinfo_t *sfxinfo, sfx_params_t *params)
     return channel_not_found;
 
   // Only allow one sound per origin
+  // Preserve the secret revealed sound, unless a new one is called
   for (cnum = 0; cnum < numChannels; cnum++)
     if (channels[cnum].active && channels[cnum].origin == origin &&
-        (comp[comp_sound] || channels[cnum].sfx_class == params->sfx_class))
+        (comp[comp_sound] || channels[cnum].sfx_class == params->sfx_class) &&
+        (channels[cnum].sfx_class != sfx_class_secret || params->sfx_class == sfx_class_secret))
     {
       // The sound is already playing
       if (channels[cnum].sfxinfo == sfxinfo && channels[cnum].loop && params->loop) {
@@ -1022,7 +1030,7 @@ static dboolean S_StopSoundInfo(sfxinfo_t* sfx, sfx_params_t *params)
   return false; // don't replace any sounds
 }
 
-static int Raven_S_getChannel(mobj_t *origin, sfxinfo_t *sfx, sfx_params_t *params)
+static int Raven_S_getChannel(mobj_t *listener, mobj_t *origin, sfxinfo_t *sfx, sfx_params_t *params)
 {
   int i;
   static int sndcount = 0;
@@ -1046,7 +1054,7 @@ static int Raven_S_getChannel(mobj_t *origin, sfxinfo_t *sfx, sfx_params_t *para
 
   for (i = 0; i < numChannels; i++)
   {
-    if (gamestate != GS_LEVEL || origin == players[displayplayer].mo)
+    if (gamestate != GS_LEVEL || origin == listener)
     {
       i = numChannels;
       break;              // let the player have more than one sound.
@@ -1111,6 +1119,18 @@ static mobj_t* GetSoundListener(void)
 
   if (players[displayplayer].mo != NULL)
   {
+    if (walkcamera.type > 1)
+    {
+      static mobj_t walkcamera_listener;
+
+      walkcamera_listener.x = walkcamera.x;
+      walkcamera_listener.y = walkcamera.y;
+      walkcamera_listener.z = walkcamera.z;
+      walkcamera_listener.angle = walkcamera.angle;
+
+      return &walkcamera_listener;
+    }
+
     return players[displayplayer].mo;
   }
   else
@@ -1173,7 +1193,7 @@ static void Raven_S_StartSoundAtVolume(void *_origin, int sound_id, int volume, 
 
   params.sfx_class = sfx_class_none;
 
-  cnum = Raven_S_getChannel(origin, sfx, &params);
+  cnum = Raven_S_getChannel(listener, origin, sfx, &params);
   if (cnum == channel_not_found)
     return;
 
@@ -1243,7 +1263,11 @@ void S_StartAmbientSound(void *_origin, int sound_id, int volume)
 
   sfx = &S_sfx[sound_id];
 
-  params.volume = (volume * (sfx_volume + 1) * 8) >> 7;
+  if (sfx_volume > 0)
+    params.volume = (volume * (sfx_volume + 1) * 8) >> 7;
+  else
+    params.volume = 0;
+
   params.pitch = (byte) (NORM_PITCH - (M_Random() & 3) + (M_Random() & 3));
   params.priority = 1; // super low priority
   params.separation = 128;

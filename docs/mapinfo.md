@@ -72,6 +72,8 @@ Appends properties to the default map.
 | **AllowRespawn** | Allow the player to respawn in a single-player game without resetting the map. |
 | **NoJump** | Disable jumping (this is the default). |
 | **AllowJump** | Enable jumping. |
+| **NoFreelook** | Disable freelook and manual vertical aiming (this is the default). |
+| **AllowFreelook** | Enable freelook and manual vertical aiming. |
 | **CheckSwitchRange** | Check vertical reachability of switches. |
 | **NoCheckSwitchRange** | Do not check vertical reachability of switches (this is the default). |
 | **ResetHealth** | Reset player health when entering the map. |
@@ -79,7 +81,12 @@ Appends properties to the default map.
 | **UsePlayerStartZ** | Spawn the player at the player start z height (by default, the player spawns on the floor). |
 | :duck: **NoPassover** | Turns on infinite thing height (objects cannot move over one another). This is the default. |
 | :duck: **Passover** | Turns off infinite thing height (objects can move over one another). |
+| :duck: **NoGravity** | Turns off gravity ("Gravity = 0" is not cross-port compatible). |
 | :duck: **ColorMap = "\<Lump\>"** | The default colormap for the map (if not **COLORMAP**). |
+| :duck: **NoVerticalExplosionThrust** | Turns off vertical explosion thrust. This is the default. |
+| :duck: **VerticalExplosionThrust** | Turns on vertical explosion thrust. |
+| :duck: **ExplodeIn2D** | Explosion damage is based on x and y coordinates. This is the default. |
+| :duck: **ExplodeIn3D** | Explosion damage is based on x, y, and z coordinates. |
 
 ### Cluster
 

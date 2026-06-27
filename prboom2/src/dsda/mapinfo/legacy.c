@@ -199,10 +199,70 @@ int dsda_LegacyNextMap(int* episode, int* map) {
   return true;
 }
 
+int dsda_LegacyPrevMap(int* episode, int* map) {
+  static byte doom2_prev[33] = {
+    1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    10, 11, 12, 13, 14, 32, 16, 17, 18, 19,
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+    15, 31, 2
+  };
+  static byte doom_prev[4][9] = {
+    { 11, 11, 12, 19, 14, 15, 16, 17, 13 },
+    { 18, 21, 22, 23, 24, 29, 26, 27, 25 },
+    { 28, 31, 32, 33, 34, 35, 39, 37, 36 },
+    { 38, 41, 49, 43, 44, 45, 46, 47, 42 }
+  };
+  static byte heretic_prev[6][9] = {
+    { 11, 11, 12, 13, 14, 15, 19, 17, 16 },
+    { 18, 21, 22, 23, 29, 25, 26, 27, 24 },
+    { 28, 31, 32, 33, 39, 35, 36, 37, 34 },
+    { 38, 41, 42, 43, 49, 45, 46, 47, 44 },
+    { 48, 51, 52, 59, 54, 55, 56, 57, 53 },
+    { 58, 61, 62, 63, 63, 63, 63, 63, 63 }, // E6M4-E6M9 shouldn't be accessible
+  };
+
+  // next arrays are 0-based, unlike gameepisode and gamemap
+  *episode = gameepisode - 1;
+  *map = gamemap - 1;
+
+  if (heretic) {
+    int prev;
+
+    prev = heretic_prev[BETWEEN(0, 5, *episode)][BETWEEN(0, 8, *map)];
+    *episode = prev / 10;
+    *map = prev % 10;
+  }
+  else if (gamemode == commercial) {
+    // secret level
+    doom2_prev[15] = (haswolflevels ? 32 : 15);
+
+    if (bfgedition && allow_incompatibility) {
+      if (gamemission == pack_nerve) {
+        doom2_prev[4] = 9;
+        doom2_prev[8] = 4;
+      }
+      else
+        doom2_prev[2] = 33;
+    }
+
+    *episode = 1;
+    *map = doom2_prev[BETWEEN(0, 32, *map)];
+  }
+  else {
+    int prev;
+
+    prev = doom_prev[BETWEEN(0, 3, *episode)][BETWEEN(0, 9, *map)];
+    *episode = prev / 10;
+    *map = prev % 10;
+  }
+
+  return true;
+}
+
 int dsda_LegacyShowNextLocBehaviour(int* behaviour) {
   if (
     gamemode != commercial &&
-    (gamemap == 8 || (gamemission == chex && gamemap == 5))
+    (gamemap == 8 || (gamemission == tc_chex && gamemap == 5))
   )
     *behaviour = WI_SHOW_NEXT_DONE;
   else
@@ -261,7 +321,7 @@ int dsda_LegacyResolveCLEV(int* clev, int* episode, int* map) {
   if (dsda_CannotCLEV(*episode, *map))
     *clev = false;
   else {
-    if (gamemission == chex)
+    if (gamemission == tc_chex)
       *episode = 1;
 
     *clev = true;
@@ -282,7 +342,7 @@ int dsda_LegacyMusicIndexToLumpNum(int* lump, int music_index) {
 
   format = raven ? "%s" : "d_%s";
 
-  sprintf(name, format, S_music[music_index].name);
+  snprintf(name, sizeof(name), format, S_music[music_index].name);
 
   *lump = W_GetNumForName(name);
 
@@ -297,14 +357,14 @@ static inline int WRAP(int i, int w)
   return i % w;
 }
 
-int dsda_LegacyMapMusic(int* music_index, int* music_lump) {
+int dsda_LegacyMapMusic(int* music_index, int* music_lump, int episode, int map) {
   *music_lump = -1;
 
   if (idmusnum != -1)
     *music_index = idmusnum; //jff 3/17/98 reload IDMUS music if not -1
   else {
     if (gamemode == commercial)
-      *music_index = mus_runnin + WRAP(gamemap - 1, DOOM_MUSINFO - mus_runnin);
+      *music_index = mus_runnin + WRAP(map - 1, DOOM_MUSINFO - mus_runnin);
     else {
       static const int spmus[] = {
         mus_e3m4,
@@ -320,13 +380,13 @@ int dsda_LegacyMapMusic(int* music_index, int* music_lump) {
 
       if (heretic)
         *music_index = heretic_mus_e1m1 +
-                       WRAP((gameepisode - 1) * 9 + gamemap - 1,
+                       WRAP((episode - 1) * 9 + map - 1,
                             HERETIC_NUMMUSIC - heretic_mus_e1m1);
-      else if (gameepisode < 4)
+      else if (episode < 4)
         *music_index = mus_e1m1 +
-                       WRAP((gameepisode - 1) * 9 + gamemap - 1, mus_runnin - mus_e1m1);
+                       WRAP((episode - 1) * 9 + map - 1, mus_runnin - mus_e1m1);
       else
-        *music_index = spmus[WRAP(gamemap - 1, 9)];
+        *music_index = spmus[WRAP(map - 1, 9)];
     }
   }
 
@@ -410,7 +470,7 @@ int dsda_LegacyHUTitle(dsda_string_t* str) {
         case retail:
           // Chex.exe always uses the episode 1 level title
           // eg. E2M1 gives the title for E1M1
-          if (gamemission == chex && gamemap < 10)
+          if (gamemission == tc_chex && gamemap < 10)
             dsda_StringCat(str, *mapnames[gamemap - 1]);
           else if (gameepisode < 6 && gamemap < 10)
             dsda_StringCat(str, *mapnames[(gameepisode - 1) * 9 + gamemap - 1]);
@@ -468,6 +528,9 @@ int dsda_LegacySkyTexture(int* sky) {
         break;
       case 4: // Special Edition sky
         *sky = R_TextureNumForName ("SKY4");
+        break;
+      default:
+        *sky = R_TextureNumForName ("SKY1");
         break;
     }
   }
@@ -609,7 +672,7 @@ int dsda_LegacyPrepareFinale(int* result) {
     *result = WD_START_FINALE;
   else if (gamemap == 8)
     *result = WD_VICTORY;
-  else if (gamemap == 5 && gamemission == chex)
+  else if (gamemap == 5 && gamemission == tc_chex)
     *result = WD_VICTORY;
 
   if (dsda_FinaleShortcut())

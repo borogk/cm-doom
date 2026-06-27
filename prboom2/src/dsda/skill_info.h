@@ -52,11 +52,17 @@ typedef struct {
 } skill_info_t;
 
 extern skill_info_t skill_info;
+extern skill_info_t *skill_infos;
 
 extern int num_skills;
 
 void dsda_InitSkills(void);
 void dsda_RefreshGameSkill(void);
 void dsda_UpdateGameSkill(int skill);
+void dsda_AlterGameFlags(void);
+void dsda_InitGameModifiers(void);
+void dsda_ResetGameModifiers(void);
+void dsda_RefreshPistolStart(void);
+void dsda_RefreshAlwaysPistolStart(void);
 
 #endif

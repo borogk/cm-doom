@@ -102,6 +102,19 @@ void dsda_NextMap(int* episode, int* map) {
   dsda_LegacyNextMap(episode, map);
 }
 
+void dsda_PrevMap(int* episode, int* map) {
+  if (dsda_DoomPrevMap(episode, map))
+    return;
+
+  if (dsda_HexenPrevMap(episode, map))
+    return;
+
+  if (dsda_UPrevMap(episode, map))
+    return;
+
+  dsda_LegacyPrevMap(episode, map);
+}
+
 void dsda_ShowNextLocBehaviour(int* behaviour) {
   if (dsda_DoomShowNextLocBehaviour(behaviour))
     return;
@@ -306,17 +319,17 @@ int dsda_MusicIndexToLumpNum(int music_index) {
   return lump;
 }
 
-void dsda_MapMusic(int* music_index, int* music_lump) {
-  if (dsda_DoomMapMusic(music_index, music_lump))
+void dsda_MapMusic(int* music_index, int* music_lump, int episode, int map) {
+  if (dsda_DoomMapMusic(music_index, music_lump, episode, map))
     return;
 
-  if (dsda_HexenMapMusic(music_index, music_lump))
+  if (dsda_HexenMapMusic(music_index, music_lump, episode, map))
     return;
 
-  if (dsda_UMapMusic(music_index, music_lump))
+  if (dsda_UMapMusic(music_index, music_lump, episode, map))
     return;
 
-  dsda_LegacyMapMusic(music_index, music_lump);
+  dsda_LegacyMapMusic(music_index, music_lump, episode, map);
 }
 
 void dsda_IntermissionMusic(int* music_index, int* music_lump) {

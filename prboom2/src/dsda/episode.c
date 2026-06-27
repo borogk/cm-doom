@@ -17,6 +17,7 @@
 
 #include "doomstat.h"
 #include "lprintf.h"
+#include "w_wad.h"
 #include "z_zone.h"
 
 #include "dsda/mapinfo.h"
@@ -50,12 +51,12 @@ void dsda_AddOriginalEpisodes(void) {
     dsda_AddEpisode("map01", "CLERIC", NULL, 'c', true);
     dsda_AddEpisode("map01", "MAGE", NULL, 'm', true);
   }
-  else if (gamemode != commercial && gamemission != chex) {
+  else if (gamemode != commercial && gamemission != tc_chex) {
     dsda_AddEpisode("e1m1", NULL, "M_EPI1", 'k', true);
     dsda_AddEpisode("e2m1", NULL, "M_EPI2", 't', true);
     dsda_AddEpisode("e3m1", NULL, "M_EPI3", 'i', true);
 
-    if (gamemode == retail)
+    if (gamemode == retail && (compatibility_level >= ultdoom_compatibility || W_PWADLumpNameExists("E4M1")))
       dsda_AddEpisode("e4m1", NULL, "M_EPI4", 't', true);
   }
 }

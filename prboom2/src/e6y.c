@@ -31,6 +31,10 @@
  *-----------------------------------------------------------------------------
  */
 
+#include "doomdef.h"
+#include "dsda/demo.h"
+#include "r_patch.h"
+#include "st_stuff.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -83,8 +87,12 @@
 #include "d_deh.h"
 #include "e6y.h"
 #include "m_file.h"
+#include "v_video.h"
 
 #include "dsda/args.h"
+#include "dsda/configuration.h"
+#include "dsda/excmd.h"
+#include "dsda/key_frame.h"
 #include "dsda/map_format.h"
 #include "dsda/mapinfo.h"
 #include "dsda/playback.h"
@@ -247,6 +255,24 @@ int G_GotoNextLevel(void)
   return changed;
 }
 
+int G_GotoPrevLevel(void)
+{
+  int epsd, map;
+  int changed = false;
+
+  dsda_PrevMap(&epsd, &map);
+
+  if ((gamestate == GS_LEVEL) &&
+    allow_incompatibility &&
+    !menuactive)
+  {
+    G_DeferedInitNew(gameskill, epsd, map);
+    changed = true;
+  }
+
+  return changed;
+}
+
 void M_ChangeSpeed(void)
 {
   G_SetSpeed(true);
@@ -263,29 +289,13 @@ void M_ChangeSkyMode(void)
   gl_skymode = dsda_IntConfig(dsda_config_gl_skymode);
 
   if (gl_skymode == skytype_auto)
-    gl_drawskys = (dsda_MouseLook() ? skytype_skydome : skytype_standard);
+    gl_drawskys = (dsda_FreeAim() ? skytype_skydome : skytype_standard);
   else
     gl_drawskys = gl_skymode;
 }
 
-static int upViewPitchLimit;
-static int downViewPitchLimit;
-
-void M_ChangeMaxViewPitch(void)
-{
-  if (raven || !V_IsOpenGLMode())
-  {
-    upViewPitchLimit = (int) raven_angle_up_limit;
-    downViewPitchLimit = (int) raven_angle_down_limit;
-  }
-  else
-  {
-    upViewPitchLimit = -ANG90 + (1 << ANGLETOFINESHIFT);
-    downViewPitchLimit = ANG90 - (1 << ANGLETOFINESHIFT);
-  }
-
-  CheckPitch(&viewpitch);
-}
+static const int upViewPitchLimit = -ANG90 + (1 << ANGLETOFINESHIFT);
+static const int downViewPitchLimit = ANG90 - (1 << ANGLETOFINESHIFT);
 
 void M_ChangeScreenMultipleFactor(void)
 {
@@ -424,7 +434,7 @@ int I_MessageBox(const char* text, unsigned int type)
   {
     HWND current_hwnd = GetForegroundWindow();
     wchar_t *wtext = ConvertUtf8ToWide(text);
-    wchar_t *wpackage = ConvertUtf8ToWide(PACKAGE_NAME);
+    wchar_t *wpackage = ConvertUtf8ToWide(PROJECT_NAME);
     result = MessageBoxW(GetDesktopWindow(), wtext, wpackage, type|MB_TASKMODAL|MB_TOPMOST);
     Z_Free(wtext);
     Z_Free(wpackage);
@@ -576,7 +586,7 @@ void e6y_WriteStats(void)
 
   for (level=0;level<numlevels;level++)
   {
-    sprintf(str,
+    snprintf(str, sizeof(str),
       "%%s - %%%dd:%%05.2f (%%%dd:%%02d)  K: %%%dd/%%-%dd%%%lds  I: %%%dd/%%-%dd%%%lds  S: %%%dd/%%-%dd %%%lds\r\n",
       max.stat[TT_TIME],      max.stat[TT_TOTALTIME],
       max.stat[TT_ALLKILL],   max.stat[TT_TOTALKILL],   (long)allkills_len,
@@ -661,7 +671,7 @@ void e6y_G_Compatibility(void)
       {
 #ifdef RANGECHECK
         if (b[i] >= 256)
-          I_Error("Wrong version number of package: %s", PACKAGE_VERSION);
+          I_Error("Wrong version number of package: %s", PROJECT_VERSION);
 #endif
         emulated_version += b[i] * k;
       }
@@ -723,23 +733,22 @@ int force_singletics_to = 0;
 
 int HU_DrawDemoProgress(int force)
 {
+  extern int mouse_hide_timer;
   static unsigned int last_update = 0;
   static int prev_len = -1;
 
   int len, tics_count, diff;
   unsigned int tick, max_period;
 
-  if (gamestate == GS_DEMOSCREEN ||
-      !demoplayback ||
-      !dsda_IntConfig(dsda_config_hudadd_demoprogressbar))
+  if (gamestate == GS_DEMOSCREEN || !demoplayback)
     return false;
 
   tics_count = demo_tics_count * demo_playerscount;
-  len = MIN(SCREENWIDTH, (int)((int64_t)SCREENWIDTH * dsda_PlaybackTics() / tics_count));
+  len = MIN(SCREENWIDTH, (int)((int64_t)SCREENWIDTH * dsda_DemoTic() / tics_count));
 
   if (!force)
   {
-    max_period = ((tics_count - dsda_PlaybackTics() > 35 * demo_playerscount) ? 500 : 15);
+    max_period = ((tics_count - dsda_DemoTic() > 35 * demo_playerscount) ? 500 : 15);
 
     // Unnecessary updates of progress bar
     // can slow down demo skipping and playback
@@ -756,11 +765,61 @@ int HU_DrawDemoProgress(int force)
 
   prev_len = len;
 
-  V_FillRect(0, 0, SCREENHEIGHT - 4, len - 0, 4, 4);
-  if (len > 4)
-    V_FillRect(0, 2, SCREENHEIGHT - 3, len - 4, 2, 0);
+  if (dsda_IntConfig(dsda_config_playback_mouse_controls) && mouse_hide_timer > 0 && !timingdemo && !walkcamera.type)
+  {
+    extern auto_kf_t* auto_key_frames;
+    extern int auto_kf_size;
+    extern dsda_key_frame_t* playback_key_frames;
+    extern int playback_kf_size;
+    extern dsda_key_frame_t quick_kf;
+    int x;
 
-  return true;
+    int bar_h = ST_SCALED_HEIGHT / 6;
+    int bar_y = SCREENHEIGHT - bar_h;
+    int inner_h = bar_h * 2/3;
+    int inner_y = SCREENHEIGHT - bar_h + (bar_h - inner_h) / 2;
+
+    V_FillRect(0, 0, bar_y, len, bar_h, playpal_lightest);
+    if (len > 4)
+      V_FillRect(0, 2, inner_y, len - 4, inner_h, playpal_darkest);
+
+    // playback key frames in light blue
+    for (int i = 0; i < playback_kf_size; i++)
+    {
+      if (!playback_key_frames[i].buffer) continue;
+      x = MIN(SCREENWIDTH, (int)((int64_t)SCREENWIDTH * playback_key_frames[i].game_tic_count / tics_count));
+      V_FillRect(0, x, inner_y, 1, inner_h, colrngs[CR_LIGHTBLUE][playpal_lightest]);
+    }
+
+    // rewind key frames in green
+    for (int i = 0; i < auto_kf_size; i++)
+    {
+      if (!auto_key_frames[i].kf.buffer) continue;
+      x= MIN(SCREENWIDTH, (int)((int64_t)SCREENWIDTH * auto_key_frames[i].kf.game_tic_count / tics_count));
+      V_FillRect(0, x, inner_y, 1, inner_h, colrngs[CR_GREEN][playpal_lightest]);
+    }
+
+    // quick key frame in red
+    if (quick_kf.buffer)
+    {
+      x = MIN(SCREENWIDTH, (int)((int64_t)SCREENWIDTH * quick_kf.game_tic_count / tics_count));
+      V_FillRect(0, x, inner_y, 1, inner_h, colrngs[CR_RED][playpal_lightest]);
+    }
+
+    V_FillRect(0, len - 1, bar_y, 2, bar_h, playpal_lightest);
+
+    return true;
+  }
+  else if (dsda_IntConfig(dsda_config_hudadd_demoprogressbar))
+  {
+    V_FillRect(0, 0, SCREENHEIGHT - 4, len - 0, 4, playpal_lightest);
+    if (len > 4)
+      V_FillRect(0, 2, SCREENHEIGHT - 3, len - 4, 2, playpal_darkest);
+
+    return true;
+  }
+
+  return false;
 }
 
 #ifdef _WIN32
@@ -783,7 +842,7 @@ int GetFullPath(const char* FileName, const char* ext, char *Buffer, size_t Buff
       strcpy(dir, M_getenv("DOOMWADDIR"));
       break;
     case 2:
-      strcpy(dir, I_DoomExeDir());
+      strcpy(dir, I_ConfigDir());
       break;
     }
 

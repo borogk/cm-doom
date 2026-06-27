@@ -39,27 +39,6 @@ static char* dsda_data_dir_strings[DATA_DIR_LIMIT];
 static char* dsda_base_data_dir;
 static char* dsda_wad_data_dir;
 
-// Remove trailing slashes, translate backslashes to slashes
-// The string to normalize is passed and returned in str
-//
-// jff 4/19/98 Make killoughs slash fixer a subroutine
-//
-static void dsda_NormalizeSlashes(char *str)
-{
-  size_t l;
-
-  // killough 1/18/98: Neater / \ handling.
-  // Remove trailing / or \ to prevent // /\ \/ \\, and change \ to /
-
-  if (!str || !(l = strlen(str)))
-    return;
-  if (str[--l] == '/' || str[l] == '\\')     // killough 1/18/98
-    str[l] = 0;
-  while (l--)
-    if (str[l] == '\\')
-      str[l] = '/';
-}
-
 char* dsda_DetectDirectory(const char* env_key, int arg_id) {
   dsda_arg_t* arg;
   char* result = NULL;
@@ -68,7 +47,7 @@ char* dsda_DetectDirectory(const char* env_key, int arg_id) {
   default_directory = M_getenv(env_key);
 
   if (!default_directory)
-    default_directory = I_DoomExeDir();
+    default_directory = I_ConfigDir();
 
   arg = dsda_Arg(arg_id);
   if (arg->found) {
@@ -84,8 +63,6 @@ char* dsda_DetectDirectory(const char* env_key, int arg_id) {
   if (!result)
     result = Z_Strdup(default_directory);
 
-  dsda_NormalizeSlashes(result);
-
   return result;
 }
 
@@ -98,7 +75,7 @@ void dsda_InitDataDir(void) {
   dsda_StringPrintF(&str, "%s/%s", parent_directory, dsda_data_root);
 
   dsda_base_data_dir = str.string;
-  M_MakeDir(dsda_base_data_dir, true);
+  M_MakeDir(dsda_base_data_dir, false);
 
   Z_Free(parent_directory);
 }
@@ -147,7 +124,7 @@ static void dsda_InitWadDataDir(void) {
   for (i = 0; i < DATA_DIR_LIMIT; ++i)
     if (dsda_data_dir_strings[i]) {
       dsda_StringCatF(&str, "/%s", dsda_data_dir_strings[i]);
-      M_MakeDir(str.string, true);
+      M_MakeDir(str.string, false);
     }
 
   dsda_wad_data_dir = str.string;

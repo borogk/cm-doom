@@ -741,6 +741,7 @@ typedef enum {
   tc_poly_door,
   tc_quake,
   tc_ambient_source,
+  tc_button,
   tc_end
 } true_thinkerclass_t;
 
@@ -1113,6 +1114,17 @@ void P_ArchiveThinkers(void) {
     }
   }
 
+  for (int i = 0; i < MAXBUTTONS; i++)
+  {
+    if (buttonlist[i].btimer != 0)
+    {
+      button_t *button;
+      P_SAVE_BYTE(tc_button);
+      P_SAVE_TYPE_REF(&buttonlist[i], button, button_t);
+      button->line = (line_t *)(button->line - lines);
+    }
+  }
+
   // add a terminating marker
   P_SAVE_BYTE(tc_end);
 
@@ -1216,6 +1228,7 @@ void P_UnArchiveThinkers(void) {
         tc == tc_quake          ? sizeof(quake_t)          :
         tc == tc_ambient_source ? sizeof(ambient_source_t) :
         tc == tc_mobj           ? sizeof(mobj_t)           :
+        tc == tc_button         ? sizeof(button_t)         :
       0;
     }
 
@@ -1610,6 +1623,10 @@ void P_UnArchiveThinkers(void) {
 
           mobj->state = states + (intptr_t) mobj->state;
 
+          // Wipe blocklist pointers. They will be restored correctly later in P_UnArchiveBlockLinks.
+          mobj->bprev = NULL;
+          mobj->bnext = NULL;
+
           if (mobj->player)
             (mobj->player = &players[(size_t) mobj->player - 1]) -> mo = mobj;
 
@@ -1633,6 +1650,10 @@ void P_UnArchiveThinkers(void) {
 
           P_SetThingPosition (mobj);
 
+          // Wipe blocklist pointers again as P_SetThingPosition may have changed them.
+          mobj->bprev = NULL;
+          mobj->bnext = NULL;
+
           // killough 2/28/98:
           // Fix for falling down into a wall after savegame loaded:
           //      mobj->floorz = mobj->subsector->sector->floorheight;
@@ -1646,6 +1667,15 @@ void P_UnArchiveThinkers(void) {
 
           if (!((mobj->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL | MF_CORPSE)))
             totallive++;
+          break;
+        }
+
+      case tc_button:
+        {
+          button_t button;
+          P_LOAD_SIZE(&button, sizeof(button_t));
+          button.line = &lines[(size_t)button.line];
+          P_StartButton(button.line, button.where, button.btexture, button.btimer);
           break;
         }
 
@@ -1927,7 +1957,7 @@ void P_ArchiveSounds(void)
 
     if (i == po_NumPolyobjs)
     {                       // Sound is attached to a sector, not a polyobj
-      sec = R_PointInSubsector(node->mobj->x, node->mobj->y)->sector;
+      sec = R_PointInSector(node->mobj->x, node->mobj->y);
       difference = (int) (sec - sectors);
       P_SAVE_BYTE(0);   // 0 -- sector sound origin
     }

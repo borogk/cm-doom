@@ -37,6 +37,8 @@
 #ifndef __V_VIDEO__
 #define __V_VIDEO__
 
+#include "SDL.h"
+
 #include "doomtype.h"
 #include "doomdef.h"
 // Needed because we are refering to patches.
@@ -82,6 +84,31 @@ typedef enum
   CR_BLACK,
   CR_PURPLE,
   CR_WHITE,
+  CR_HUD_LIMIT,
+  CR_DARKEN = CR_HUD_LIMIT,
+  CR_DARKEN_BRICK,
+  CR_DARKEN_TAN,
+  CR_DARKEN_GRAY,
+  CR_DARKEN_GREEN,
+  CR_DARKEN_BROWN,
+  CR_DARKEN_GOLD,
+  CR_DARKEN_RED,
+  CR_DARKEN_BLUE,
+  CR_DARKEN_ORANGE,
+  CR_DARKEN_YELLOW,
+  CR_DARKEN_LIGHTBLUE,
+  CR_DARKEN_BLACK,
+  CR_DARKEN_PURPLE,
+  CR_DARKEN_WHITE,
+  CR_BLOOD,
+  CR_BLOOD_GRAY = CR_BLOOD,
+  CR_BLOOD_GREEN,
+  CR_BLOOD_BLUE,
+  CR_BLOOD_YELLOW,
+  CR_BLOOD_BLACK,
+  CR_BLOOD_PURPLE,
+  CR_BLOOD_WHITE,
+  CR_BLOOD_ORANGE,
   CR_LIMIT,
 } crange_idx_e;
 //jff 1/16/98 end palette color range additions
@@ -119,8 +146,7 @@ extern int          usegamma;
 // The available bit-depth modes
 typedef enum {
   VID_MODESW,
-  VID_MODEGL,
-  VID_MODEMAX
+  VID_MODEGL
 } video_mode_t;
 
 void V_InitMode(video_mode_t mode);
@@ -132,6 +158,7 @@ dboolean V_IsOpenGLMode(void);
 // [XA] indexed lightmode query interface
 dboolean V_IsUILightmodeIndexed(void);
 dboolean V_IsAutomapLightmodeIndexed(void);
+dboolean V_IsMenuLightmodeIndexed(void);
 
 //jff 4/24/98 loads color translation lumps
 void V_InitColorTranslation(void);
@@ -157,6 +184,14 @@ extern V_BeginAutomapDraw_f V_BeginAutomapDraw;
 typedef void(*V_EndAutomapDraw_f)(void);
 extern V_EndAutomapDraw_f V_EndAutomapDraw;
 
+// V_BeginMenuDraw
+typedef void(*V_BeginMenuDraw_f)(void);
+extern V_BeginMenuDraw_f V_BeginMenuDraw;
+
+// V_EndMenuDraw
+typedef void(*V_EndMenuDraw_f)(void);
+extern V_EndMenuDraw_f V_EndMenuDraw;
+
 // V_CopyRect
 typedef void (*V_CopyRect_f)(int srcscrn, int destscrn,
                              int x, int y,
@@ -174,20 +209,30 @@ extern V_FillRect_f V_FillRect;
 // CPhipps - patch drawing
 // Consolidated into the 3 really useful functions:
 
-// V_DrawNumPatch - Draws the patch from lump num
-typedef void (*V_DrawNumPatch_f)(int x, int y, int scrn,
-                                 int lump, int cm,
+// V_DrawNumPatchGen - Draws the patch from lump num
+typedef void (*V_DrawNumPatchGen_f)(int x, int y, int scrn,
+                                 int lump, dboolean center, int cm,
                                  enum patch_translation_e flags);
-extern V_DrawNumPatch_f V_DrawNumPatch;
+extern V_DrawNumPatchGen_f V_DrawNumPatchGen;
 
-typedef void (*V_DrawNumPatchPrecise_f)(float x, float y, int scrn,
-                                 int lump, int cm,
+typedef void (*V_DrawNumPatchGenPrecise_f)(float x, float y, int scrn,
+                                 int lump, dboolean center, int cm,
                                  enum patch_translation_e flags);
-extern V_DrawNumPatchPrecise_f V_DrawNumPatchPrecise;
+extern V_DrawNumPatchGenPrecise_f V_DrawNumPatchGenPrecise;
+
+// V_DrawNumPatch - Draws the patch from lump "num"
+#define V_DrawNumPatch(x,y,s,n,t,f) V_DrawNumPatchGen(x,y,s,n,false,t,f)
+#define V_DrawNumPatchPrecise(x,y,s,n,t,f) V_DrawNumPatchGenPrecise(x,y,s,n,false,t,f)
 
 // V_DrawNamePatch - Draws the patch from lump "name"
-#define V_DrawNamePatch(x,y,s,n,t,f) V_DrawNumPatch(x,y,s,W_GetNumForName(n),t,f)
-#define V_DrawNamePatchPrecise(x,y,s,n,t,f) V_DrawNumPatchPrecise(x,y,s,W_GetNumForName(n),t,f)
+#define V_DrawNamePatch(x,y,s,n,t,f) V_DrawNumPatchGen(x,y,s,W_GetNumForName(n),false,t,f)
+#define V_DrawNamePatchPrecise(x,y,s,n,t,f) V_DrawNumPatchGenPrecise(x,y,s,W_GetNumForName(n),false,t,f)
+
+// These functions center patches if width > 320 :
+#define V_DrawNumPatchFS(x,y,s,n,t,f) V_DrawNumPatchGen(x,y,s,n,true,t,f)
+#define V_DrawNumPatchPreciseFS(x,y,s,n,t,f) V_DrawNumPatchGenPrecise(x,y,s,n,true,t,f)
+#define V_DrawNamePatchFS(x,y,s,n,t,f) V_DrawNumPatchGen(x,y,s,W_GetNumForName(n),true,t,f)
+#define V_DrawNamePatchPreciseFS(x,y,s,n,t,f) V_DrawNumPatchGenPrecise(x,y,s,W_GetNumForName(n),true,t,f)
 
 /* cph -
  * Functions to return width & height of a patch.
@@ -212,6 +257,9 @@ extern V_FillPatch_f V_FillPatch;
 /* cphipps 10/99: function to tile a flat over the screen */
 typedef void (*V_DrawBackground_f)(const char* flatname, int scrn);
 extern V_DrawBackground_f V_DrawBackground;
+
+typedef void (*V_DrawShaded_f)(int scrn, int x, int y, int width, int height, int shade);
+extern V_DrawShaded_f V_DrawShaded;
 
 // CPhipps - function to set the palette to palette number pal.
 void V_TouchPalette(void);
@@ -261,6 +309,8 @@ void V_FreePlaypal(void);
 
 // [XA] get number of palettes in the current playpal
 int V_GetPlaypalCount(void);
+
+SDL_Color V_GetPatchColor (int lumpnum);
 
 // e6y: wide-res
 void V_ClearBorder(void);

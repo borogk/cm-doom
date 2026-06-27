@@ -15,6 +15,8 @@
  *  Cameraman module.
  */
 
+#include <math.h>
+
 #include "cman.h"
 #include "e6y.h"
 #include "doomstat.h"
@@ -85,8 +87,9 @@ struct
 } cman_out;
 
 // Extra behavior settings
-dboolean cman_auto_skip = false;
-dboolean cman_auto_exit = false;
+dboolean cman_skip = false;
+dboolean cman_exit = false;
+dboolean cman_noflash = false;
 
 // Track active state to detect changes
 dboolean cman_was_active = false;
@@ -339,20 +342,35 @@ float CMAN_NextValues(float t)
   return progress;
 }
 
+// Initializes Cameraman related stuff on level start (only called if Cameraman is loaded).
+void CMAN_LevelStart()
+{
+  // Reset active flag
+  cman_was_active = false;
+
+  // Reset the camera
+  walkcamera.type = 0;
+
+  // Implementation of auto-skip for when a demo is not playing
+  int cman_skiptics = CMAN_SkipTics();
+  if (cman_skiptics > 0 && !demoplayback)
+    dsda_SkipToLogicTic(true_logictic + cman_skiptics);
+}
+
 // Meant to be called every gametic from P_WalkTicker.
 // Returns true when Cameraman is engaged, this should tell P_WalkTicker back the camera control is overridden.
 int CMAN_Ticker()
 {
+  // Player mobj to manipulate if needed
+  player_t* player = &players[displayplayer];
+
   // Cameraman is not loaded at all, quit without touching the camera or anything else
   if (cman.delay < 0)
     return false;
 
-  // Reset the camera at every level start
+  // Detect the level start
   if (gametic == levelstarttic)
-  {
-    walkcamera.type = 0;
-    cman_was_active = false;
-  }
+    CMAN_LevelStart();
 
   // Cameraman time must be exactly 0 after the current level has started and 'delay' tics have passed
   // Don't start earlier than that
@@ -379,22 +397,19 @@ int CMAN_Ticker()
     walkcamera.angle = CMAN_FromZDoomAngle(cman_out.a);
     walkcamera.pitch = CMAN_FromZDoomAngle(cman_out.p);
 
-    // Player mobj to manipulate if needed
-    mobj_t* player = players[displayplayer].mo;
-
     // Warp the player (not supported during demo playback)
     if (cman.warp_player && !demoplayback)
     {
       P_MapStart();
 
-      if (P_TeleportMove(player, walkcamera.x, walkcamera.y, false))
+      if (P_TeleportMove(player->mo, walkcamera.x, walkcamera.y, false))
       {
-        player->z = walkcamera.z;
-        player->angle = walkcamera.angle;
-        player->pitch = walkcamera.pitch;
-        player->momx = 0;
-        player->momy = 0;
-        player->momz = 0;
+        player->mo->z = walkcamera.z;
+        player->mo->angle = walkcamera.angle;
+        player->mo->pitch = walkcamera.pitch;
+        player->mo->momx = 0;
+        player->mo->momy = 0;
+        player->mo->momz = 0;
       }
 
       P_MapEnd();
@@ -402,15 +417,19 @@ int CMAN_Ticker()
 
     // Hide the player
     if (cman.hide_player)
-      player->flags2 |= MF2_DONTDRAW;
+      player->mo->flags2 |= MF2_DONTDRAW;
   }
   else
   {
     // Auto-exit after the camera is done, but not while skipping frames
     // The skip mode check prevents premature exits, e.g. when skipping a level in multi-level demos
-    if (cman_auto_exit && !dsda_SkipMode())
+    if (cman_exit && !dsda_SkipMode())
       I_SafeExit(0);
   }
+
+  // Disable gun flashes
+  if (cman_noflash)
+    player->extralight = 0;
 
   cman_was_active = true;
   return true;
@@ -461,6 +480,37 @@ float CMAN_FloatInRange(float value, float min, float max)
     return value;
 }
 
+// Reduces user error by validating and auto-correcting demo playback options when -viddump argument is used.
+void CMAN_CorrectPlaybackOptionsForViddump()
+{
+  // All possible ways to configure demo playback
+  dsda_arg_t *playdemo_arg = dsda_Arg(dsda_arg_playdemo);
+  dsda_arg_t *fastdemo_arg = dsda_Arg(dsda_arg_fastdemo);
+  dsda_arg_t *timedemo_arg = dsda_Arg(dsda_arg_timedemo);
+
+  // Careful with the precedence order here: -playdemo, -fastdemo, -timedemo
+  const char* demoname = NULL;
+  if (playdemo_arg->found)
+    demoname = playdemo_arg->value.v_string;
+  else if (fastdemo_arg->found)
+    demoname = fastdemo_arg->value.v_string;
+  else if (timedemo_arg->found)
+    demoname = timedemo_arg->value.v_string;
+
+  if (demoname)
+  {
+    // Always use -timedemo, only this playback mode outputs frame-perfect videos.
+    dsda_UpdateStringArg(dsda_arg_timedemo, demoname);
+    dsda_UpdateFlag(dsda_arg_playdemo, false);
+    dsda_UpdateFlag(dsda_arg_fastdemo, false);
+  }
+  else
+  {
+    // If no demo is specified, this flag still makes sure every video frame is properly captured
+    singletics = true;
+  }
+}
+
 // Meant to be called only once during the game startup.
 void CMAN_Init()
 {
@@ -472,22 +522,21 @@ void CMAN_Init()
   if (!cman_arg->found)
     return;
 
-  // Look for -cman_auto_skip command line argument
-  if (dsda_Flag(dsda_arg_cman_auto_skip))
-    cman_auto_skip = true;
+  // Look for -cman_skip command line argument
+  if (dsda_Flag(dsda_arg_cman_skip))
+    cman_skip = true;
 
-  // Look for -cman_auto_exit command line argument
-  if (dsda_Flag(dsda_arg_cman_auto_exit))
-    cman_auto_exit = true;
+  // Look for -cman_exit command line argument
+  if (dsda_Flag(dsda_arg_cman_exit))
+    cman_exit = true;
 
-  // Look for -cman_viddump command line argument
-  dsda_arg_t *cman_viddump_arg = dsda_Arg(dsda_arg_cman_viddump);
-  if (cman_viddump_arg->found)
-  {
-    cman_auto_skip = true;
-    cman_auto_exit = true;
-    dsda_UpdateStringArg(dsda_arg_viddump, cman_viddump_arg->value.v_string);
-  }
+  // Look for -cman_noflash command line argument
+  if (dsda_Flag(dsda_arg_cman_noflash))
+    cman_noflash = true;
+
+  // Look for -viddump command line argument
+  if (dsda_Flag(dsda_arg_viddump))
+    CMAN_CorrectPlaybackOptionsForViddump();
 
   CMAN_InitDefaults();
 
@@ -592,5 +641,5 @@ void CMAN_Init()
 // Meant to be called when setting up skiptics. Returns amount of tics to skip or -1 if no skip is needed.
 int CMAN_SkipTics()
 {
-  return cman_auto_skip ? cman.delay : -1;
+  return cman_skip ? cman.delay : -1;
 }

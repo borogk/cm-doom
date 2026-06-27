@@ -18,6 +18,7 @@
 
 #include "doomstat.h"
 #include "m_cheat.h"
+#include "m_menu.h"
 #include "m_random.h"
 #include "v_video.h"
 #include "r_main.h"
@@ -59,7 +60,6 @@ int curpos;
 int inv_ptr;
 int ArtifactFlash;
 int SB_state = -1;
-int playerkeys = 0;
 
 // Private Data
 
@@ -293,6 +293,8 @@ void SB_Init(void)
 
     // [FG] support widescreen status bar backgrounds
     ST_SetScaledWidth();
+
+    ST_LoadTextColors();
 }
 
 //---------------------------------------------------------------------------
@@ -533,9 +535,9 @@ static int oldmana1 = -1;
 static int oldmana2 = -1;
 static int oldpieces = -1;
 
-void SB_Drawer(dboolean statusbaron, dboolean refresh, dboolean fullmenu)
+void SB_Drawer(dboolean statusbaron, dboolean refresh)
 {
-    if (refresh || fullmenu || V_IsOpenGLMode()) SB_state = -1;
+    if (refresh || fadeBG() || V_IsOpenGLMode()) SB_state = -1;
 
     if (!statusbaron)
     {
@@ -552,7 +554,7 @@ void SB_Drawer(dboolean statusbaron, dboolean refresh, dboolean fullmenu)
     {
         if (heretic)
         {
-            V_DrawNumPatch(0, 158, 0, LumpBARBACK, CR_DEFAULT, VPT_STRETCH);
+            V_DrawNumPatchFS(0, 158, 0, LumpBARBACK, CR_DEFAULT, VPT_STRETCH);
             if (players[consoleplayer].cheats & CF_GODMODE)
             {
                 V_DrawNamePatch(16, 167, 0, "GOD1", CR_DEFAULT, VPT_STRETCH);
@@ -561,7 +563,7 @@ void SB_Drawer(dboolean statusbaron, dboolean refresh, dboolean fullmenu)
         }
         else
         {
-            V_DrawNumPatch(0, 134, 0, LumpH2BAR, CR_DEFAULT, VPT_STRETCH);
+            V_DrawNumPatchFS(0, 134, 0, LumpH2BAR, CR_DEFAULT, VPT_STRETCH);
         }
 
         oldhealth = -1;
@@ -693,12 +695,12 @@ void DrawCommonBar(void)
     {
       if (heretic)
       {
-          V_DrawNumPatch(0,  148, 0, LumpLTFCTOP, CR_DEFAULT, VPT_STRETCH);
-          V_DrawNumPatch(290,  148, 0, LumpRTFCTOP, CR_DEFAULT, VPT_STRETCH);
+          V_DrawNumPatchFS(0,  148, 0, LumpLTFCTOP, CR_DEFAULT, VPT_STRETCH);
+          V_DrawNumPatchFS(290,  148, 0, LumpRTFCTOP, CR_DEFAULT, VPT_STRETCH);
       }
       else
       {
-          V_DrawNumPatch(0, 134, 0, LumpH2TOP, CR_DEFAULT, VPT_STRETCH);
+          V_DrawNumPatchFS(0, 134, 0, LumpH2TOP, CR_DEFAULT, VPT_STRETCH);
       }
     }
 
@@ -722,7 +724,7 @@ void DrawCommonBar(void)
             healthPos = (healthPos * 256) / 100;
             chainY =
                 (HealthMarker == CPlayer->mo->health) ? 191 : 191 + ChainWiggle;
-            V_DrawNumPatch(0,  190, 0, LumpCHAINBACK, CR_DEFAULT, VPT_STRETCH);
+            V_DrawNumPatchFS(0,  190, 0, LumpCHAINBACK, CR_DEFAULT, VPT_STRETCH);
             V_DrawNumPatch(2 + (healthPos % 17),  chainY, 0, LumpCHAIN, CR_DEFAULT, VPT_STRETCH);
             V_DrawNumPatch(17 + healthPos,  chainY, 0, LumpLIFEGEM, CR_DEFAULT, VPT_STRETCH);
             V_DrawNumPatch(0,  190, 0, LumpLTFACE, CR_DEFAULT, VPT_STRETCH);
@@ -814,7 +816,7 @@ void DrawMainBar(void)
     }
 
     // Keys
-    if (oldkeys != playerkeys)
+    if (oldkeys != CPlayer->ravenkeys)
     {
         if (CPlayer->cards[key_yellow])
         {
@@ -828,7 +830,7 @@ void DrawMainBar(void)
         {
             V_DrawNamePatch(153, 180, 0, "bkeyicon", CR_DEFAULT, VPT_STRETCH);
         }
-        oldkeys = playerkeys;
+        oldkeys = CPlayer->ravenkeys;
     }
     // Ammo
     temp = CPlayer->ammo[wpnlev1info[CPlayer->readyweapon].ammo];
@@ -994,6 +996,11 @@ static void Hexen_SB_Init(void)
         LumpKILLS = W_GetNumForName("KILLS");
     }
     SB_SetClassData();
+
+    // [FG] support widescreen status bar backgrounds
+    ST_SetScaledWidth();
+
+    ST_LoadTextColors();
 }
 
 void SB_SetClassData(void)
@@ -1207,19 +1214,19 @@ void DrawKeyBar(void)
     int xPosition;
     int temp;
 
-    if (oldkeys != playerkeys)
+    if (oldkeys != CPlayer->ravenkeys)
     {
         xPosition = 46;
         for (i = 0; i < NUMCARDS && xPosition <= 126; i++)
         {
-            if (playerkeys & (1 << i))
+            if (CPlayer->ravenkeys & (1 << i))
             {
                 V_DrawNumPatch(xPosition, 164, 0,
                                W_GetNumForName("keyslot1") + i, CR_DEFAULT, VPT_STRETCH);
                 xPosition += 20;
             }
         }
-        oldkeys = playerkeys;
+        oldkeys = CPlayer->ravenkeys;
     }
     temp = pclass[CPlayer->pclass].auto_armor_save +
         CPlayer->armorpoints[ARMOR_ARMOR] +
@@ -1254,7 +1261,7 @@ void DrawKeyBar(void)
 
 static int PieceX[NUMCLASSES][3] = {
     [PCLASS_FIGHTER] = {190, 225, 234},
-                       {190, 212, 225},
+                       {190, 213, 226},
                        {190, 205, 224},
                        {0, 0, 0}                   // Pig is never used
 };
@@ -1269,15 +1276,15 @@ static void DrawWeaponPieces(void)
     V_DrawNumPatch(190, 162, 0, LumpWEAPONSLOT, CR_DEFAULT, VPT_STRETCH);
     if (CPlayer->pieces & WPIECE1)
     {
-        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer] - 1][0], 162, 0, LumpPIECE1, CR_DEFAULT, VPT_STRETCH);
+        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer]][0], 162, 0, LumpPIECE1, CR_DEFAULT, VPT_STRETCH);
     }
     if (CPlayer->pieces & WPIECE2)
     {
-        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer] - 1][1], 162, 0, LumpPIECE2, CR_DEFAULT, VPT_STRETCH);
+        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer]][1], 162, 0, LumpPIECE2, CR_DEFAULT, VPT_STRETCH);
     }
     if (CPlayer->pieces & WPIECE3)
     {
-        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer] - 1][2], 162, 0, LumpPIECE3, CR_DEFAULT, VPT_STRETCH);
+        V_DrawNumPatch(PieceX[PlayerClass[consoleplayer]][2], 162, 0, LumpPIECE3, CR_DEFAULT, VPT_STRETCH);
     }
 }
 

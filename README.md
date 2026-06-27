@@ -1,25 +1,32 @@
 # cm-doom
 
-This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom), which enables playback of Cameraman profiles.
+This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) that enables playback of Cameraman profiles.
 
-Downloads can be found on the [releases page](https://github.com/borogk/cm-doom/releases).
+### Installation
+
+| Platform | Instructions                                                                                 |
+|----------|----------------------------------------------------------------------------------------------|
+| Windows  | Download pre-built binaries from [releases page](https://github.com/borogk/cm-doom/releases) |
+| Linux    | Follow [build instructions for Linux](prboom2/INSTALL)                                       |
+| macOS    | Follow [build instructions for macOS](docs/guides/building_on_macos.md)                      |
 
 ### What is Cameraman?
 
-**Cameraman** is a tool for making short clips or movies in GZDoom, capturing gameplay and/or scenery.
+**Cameraman** is a tool for making short clips or movies in ZDoom family of source ports, capturing gameplay and/or scenery.
 Here is its page: [cameraman](https://github.com/borogk/cameraman).
 
 ### Why does this fork exist?
 
-This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of GZDoom.
+This fork allows playing back Cameraman profiles, but in dsda-doom engine instead of ZDoom.
 
-The main Cameraman is a mod for GZDoom. Its main component is an editor, that allows to interactively draw
+The main Cameraman is a mod for ZDoom. Its main component is an editor, that allows to interactively draw
 different paths for camera and to instantly try them out in-engine.
 
 That editor also allows saving **camera profiles** as separate files, to load and re-play them later.
 
 Playing these profiles in dsda-doom engine offers a few advantages:
-- **Accurate demo playback.**
+
+- **Accurate demo playback.** 
   You can capture "cinematic" playthrough of almost any existing Doom speedrun,
   thanks to robust backwards compatibility.
 - **Viddump.**
@@ -29,17 +36,17 @@ Playing these profiles in dsda-doom engine offers a few advantages:
   power, the output video is generated quicker than in real time.
 - **More faithful visuals.**
   Both software and OpenGL rendering modes look much closer to the original Doom for MS-DOS.
-  Original lighting in particular is challenging to reproduce in GZDoom, as well as some rendering artifacts.
+  Original lighting in particular is challenging to reproduce in ZDoom variants, as well as some rendering artifacts.
 
 ### How to use
 
 Run with the following fork-specific command line parameters (all are optional):
 
 `-cman <file>` loads a camera profile (.cman file), previously exported by the Cameraman Editor
-([how to export](https://github.com/borogk/cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
+([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)).
 If not specified, Cameraman functionality is disabled and all parameters described below are ignored.
 
-`-cman_skip` automatically skips to the frame when the camera becomes active
+`-cman_skip` automatically skips to the frame when the camera becomes active 
 (**'delay'** parameter in camera profile).
 
 `-cman_exit` automatically exits as soon as the camera path is completed.
@@ -47,7 +54,8 @@ If not specified, Cameraman functionality is disabled and all parameters describ
 `-cman_noflash` disables gun flashes lighting up the environment, in case you find them distracting.
 
 Examples:
-```shell
+
+```sh
 # Runs the game with a camera profile
 cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
 
@@ -87,3 +95,5 @@ Originally created by **borogk** in 2024.
 Based on [dsda-doom](https://github.com/kraflab/dsda-doom), see its contributors on the respective repository page.
 
 Original README is copied over to [README_DSDA.md](README_DSDA.md) out of courtesy.
+
+Big thanks to [Vytaan](https://www.youtube.com/@Vytaan) for testing.

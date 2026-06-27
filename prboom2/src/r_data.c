@@ -106,9 +106,16 @@ int       *texturetranslation;
 //
 
 const byte *R_GetTextureColumn(const rpatch_t *texpatch, int col) {
+  const int width = texpatch->width;
+  const unsigned int mask = texpatch->widthmask;
+
   while (col < 0)
-    col += texpatch->width;
-  col &= texpatch->widthmask;
+    col += width;
+
+  if (mask + 1 == width)
+    col &= mask;
+  else
+    col %= width;
 
   return texpatch->columns[col].pixels;
 }
@@ -379,6 +386,7 @@ static void R_InitSpriteLumps(void)
 static void R_InitColormaps(void)
 {
   int i;
+  extern const byte* colormap_lump;
   // MAP_FORMAT_TODO: not sure about this
   if (hexen)
   {
@@ -393,7 +401,8 @@ static void R_InitColormaps(void)
     numcolormaps = lastcolormaplump - firstcolormaplump;
   }
   colormaps = Z_Malloc(sizeof(*colormaps) * numcolormaps);
-  colormaps[0] = (const lighttable_t *)W_LumpByName("COLORMAP");
+  colormap_lump = W_LumpByName("COLORMAP");
+  colormaps[0] = (const lighttable_t *)colormap_lump;
   for (i=1; i<numcolormaps; i++)
     colormaps[i] = (const lighttable_t *)W_LumpByNum(i+firstcolormaplump);
   // cph - always lock

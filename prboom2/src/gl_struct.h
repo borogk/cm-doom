@@ -58,6 +58,7 @@ enum bleedtype {
 extern int gl_drawskys;
 extern dboolean gl_ui_lightmode_indexed;
 extern dboolean gl_automap_lightmode_indexed;
+extern dboolean gl_menu_lightmode_indexed;
 void gld_FlushTextures(void);
 
 void gld_InitVertexData();
@@ -71,9 +72,11 @@ void gld_BeginUIDraw(void);
 void gld_EndUIDraw(void);
 void gld_BeginAutomapDraw(void);
 void gld_EndAutomapDraw(void);
+void gld_BeginMenuDraw(void);
+void gld_EndMenuDraw(void);
 
-void gld_DrawNumPatch(int x, int y, int lump, int cm, enum patch_translation_e flags);
-void gld_DrawNumPatch_f(float x, float y, int lump, int cm, enum patch_translation_e flags);
+void gld_DrawNumPatch(int x, int y, int lump, dboolean center, int cm, enum patch_translation_e flags);
+void gld_DrawNumPatch_f(float x, float y, int lump, dboolean center, int cm, enum patch_translation_e flags);
 
 void gld_FillRaw(int lump, int x, int y, int src_width, int src_height, int dst_width, int dst_height, enum patch_translation_e flags);
 #define gld_FillRawName(name, x, y, src_width, src_height, dst_width, dst_height, flags) \
@@ -92,6 +95,7 @@ void gld_DrawLine(int x0, int y0, int x1, int y1, int BaseColor);
 void gld_DrawLine_f(float x0, float y0, float x1, float y1, int BaseColor);
 void gld_DrawWeapon(int weaponlump, vissprite_t *vis, int lightlevel);
 void gld_FillBlock(int x, int y, int width, int height, int col);
+void gld_DrawShaded(int x, int y, int width, int height, int shade);
 void gld_SetPalette(int palette);
 unsigned char *gld_ReadScreen(void);
 

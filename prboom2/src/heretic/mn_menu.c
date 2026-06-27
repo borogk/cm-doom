@@ -20,13 +20,14 @@
 #include "w_wad.h"
 #include "v_video.h"
 #include "m_menu.h"
+#include "g_game.h"
 #include "dsda/settings.h"
 #include "heretic/dstrings.h"
 #include "heretic/mn_menu.h"
 
 #define ITEM_HEIGHT 20
 #define SELECTOR_XOFFSET (-28)
-#define SELECTOR_YOFFSET (-1)
+#define SELECTOR_YOFFSET (-4)
 #define SFX_VOL_INDEX 1
 #define MUS_VOL_INDEX 3
 
@@ -39,6 +40,14 @@ static int SkullBaseLump;
 static int MenuTime;
 
 dboolean mn_SuicideConsole;
+
+static int MN_SafeFontALump(int offset)
+{
+  if (offset > 58)
+    return FontABaseLump;
+
+  return FontABaseLump + offset;
+}
 
 static void MN_InitFonts(void)
 {
@@ -56,7 +65,221 @@ extern menu_t LoadDef;
 extern menu_t SaveDef;
 extern menuitem_t SoundMenu[];
 
-void M_DrawThermo(int x, int y, int thermWidth, int thermDot);
+/////////////////////////////
+//
+// Raven Prototypes
+//
+/////////////////////////////
+
+void MN_GameFiles(int choice);
+void MN_Info(int choice);
+void MN_Info2(int choice);
+void MN_Info3(int choice);
+void MN_Info4(int choice);
+void MN_FinishInfo(int choice);
+
+void MN_DrawInfoAd(void);
+void MN_DrawInfoHelp1(void);
+void MN_DrawInfoHelp2(void);
+void MN_DrawInfoCredits(void);
+
+void MN_DrawAd(void);
+void MN_DrawCredits(void);
+void MN_DrawHelp1(void);
+void MN_DrawHelp2(void);
+
+extern void M_ChangeMenu(menu_t *menu, menuactive_t mnact);
+extern dboolean inhelpscreens;
+extern menu_t ExtHelpDef;
+extern void M_NewGame(int choice);
+extern void M_Options(int choice);
+extern void M_QuitDOOM(int choice);
+extern void M_LoadGame(int choice);
+extern void M_SaveGame(int choice);
+
+
+/////////////////////////////
+//
+// Raven Info Screens
+//
+/////////////////////////////
+
+enum { infoempty1, info1_end } info_e1;
+enum { infoempty2, info2_end } info_e2;
+enum { infoempty3, info3_end } info_e3;
+enum { infoempty4, info4_end } info_e4;
+
+menuitem_t InfoMenu1[] = { {1,"",MN_Info2,0} };
+menuitem_t InfoMenu2[] = { {1,"",MN_Info3,0} };
+menuitem_t InfoMenu3[] = { {1,"",MN_Info4,0} };
+menuitem_t InfoMenu4[] = { {1,"",MN_FinishInfo,0} };
+
+menu_t InfoDef1 =
+{
+  info1_end,
+  &MainDef,
+  InfoMenu1,
+  MN_DrawInfoAd,
+  330,175,
+  0
+};
+
+menu_t InfoDef2 =
+{
+  info2_end,
+  &InfoDef1,
+  InfoMenu2,
+  MN_DrawInfoHelp1,
+  330,175,
+  0
+};
+
+menu_t InfoDef3 =
+{
+  info3_end,
+  &InfoDef2,
+  InfoMenu3,
+  MN_DrawInfoHelp2,
+  330,175,
+  0
+};
+
+menu_t InfoDef4 =
+{
+  info4_end,
+  &InfoDef3,
+  InfoMenu4,
+  MN_DrawInfoCredits,
+  330,175,
+  0
+};
+
+void MN_Info  (int choice) { M_SetupNextMenu(&InfoDef1); }
+void MN_Info2 (int choice) { M_SetupNextMenu(&InfoDef2); }
+void MN_Info3 (int choice) { M_SetupNextMenu(&InfoDef3); }
+void MN_Info4 (int choice) { M_SetupNextMenu(&InfoDef4); }
+void MN_FinishInfo (int choice) { M_SetupNextMenu(&MainDef); }
+
+void MN_DrawInfoAd(void)
+{
+  inhelpscreens = true;
+  MN_DrawAd();
+}
+
+void MN_DrawInfoHelp1(void)
+{
+  inhelpscreens = true;
+  MN_DrawHelp1();
+}
+
+void MN_DrawInfoHelp2(void)
+{
+  inhelpscreens = true;
+  MN_DrawHelp2();
+}
+
+void MN_DrawInfoCredits(void)
+{
+  inhelpscreens = true;
+  MN_DrawCredits();
+}
+
+void MN_DrawAd (void)
+{
+  const char* ravenlump;
+  ravenlump = (heretic && (gamemode == shareware)) ? "ORDER" : "CREDIT";
+  M_ChangeMenu(NULL, mnact_full);
+  V_DrawRawScreen(ravenlump);
+  return;
+}
+
+void MN_DrawHelp1 (void)
+{
+  M_ChangeMenu(NULL, mnact_full);
+  V_DrawRawScreen("HELP1");
+  return;
+}
+
+void MN_DrawHelp2 (void)
+{
+  M_ChangeMenu(NULL, mnact_full);
+  V_DrawRawScreen("HELP2");
+  return;
+}
+
+void MN_DrawCredits (void)
+{
+  M_ChangeMenu(NULL, mnact_full);
+  V_DrawRawScreen("CREDIT");
+  return;
+}
+
+/////////////////////////////
+//
+// RavenMainMenu (Heretic and Hexen use this)
+//
+/////////////////////////////
+
+enum
+{
+  rnewgame = 0,
+  roptions,
+  rgamefiles,
+  rinfo,
+  rquitdoom,
+  rmain_end
+} rmain_e;
+
+menuitem_t RavenMainMenu[]=
+{
+  {1,"M_NGAME", M_NewGame, 'n', "NEW GAME"},
+  {1,"M_OPTION",M_Options, 'o', "OPTIONS"},
+  {1,"M_GFILES", MN_GameFiles,'g', "GAME FILES"},
+  {1,"M_INFO",MN_Info,'i', "INFO"},
+  {1,"M_QUITG", M_QuitDOOM,'q', "QUIT GAME"}
+};
+
+
+/////////////////////////////
+//
+// Raven GameFiles Menu
+//
+/////////////////////////////
+
+enum
+{
+  rloadgame,
+  rsavegame,
+  rsaveload_end
+} saveload_e;
+
+menuitem_t SaveLoadMenu[]=
+{
+  {1,"M_LOADG", M_LoadGame,'l', "LOAD GAME"},
+  {1,"M_SAVEG", M_SaveGame,'s', "SAVE GAME"},
+};
+
+menu_t SaveLoadDef =
+{
+  rsaveload_end,       // number of menu items
+  &MainDef,           // previous menu screen
+  SaveLoadMenu,       // table that defines menu items
+  NULL, // drawing routine
+  97,64,          // initial cursor position
+  0               // last menu item the user was on
+};
+
+void MN_GameFiles(int choice)
+{
+  M_SetupNextMenu(&SaveLoadDef);
+}
+
+
+/////////////////////////////
+//
+// Raven MN_Init
+//
+/////////////////////////////
 
 void MN_Init(void)
 {
@@ -114,6 +337,20 @@ void MN_Init(void)
 
   SoundMenu[0].alttext = "SFX VOLUME";
   SoundMenu[2].alttext = "MUSIC VOLUME";
+
+  // Use exclusive Raven MainMenu.
+  MainDef.menuitems = RavenMainMenu;
+  MainDef.numitems = rmain_end;
+  SaveDef.prevMenu = &SaveLoadDef;
+  LoadDef.prevMenu = &SaveLoadDef;
+
+  // remove "ORDER" screen if not shareware
+  if (gamemode != shareware)
+  {
+    InfoDef1.routine = MN_DrawInfoHelp1;
+    InfoMenu1[0].routine = MN_Info3;
+    InfoDef2.prevMenu = &MainDef;
+  }
 }
 
 void MN_UpdateClass(int choice)
@@ -124,27 +361,29 @@ void MN_UpdateClass(int choice)
   {
     case PCLASS_FIGHTER:
       SkillDef.x = 120;
-      SkillDef.menuitems[0].alttext = "SQUIRE";
-      SkillDef.menuitems[1].alttext = "KNIGHT";
-      SkillDef.menuitems[2].alttext = "WARRIOR";
-      SkillDef.menuitems[3].alttext = "BERSERKER";
-      SkillDef.menuitems[4].alttext = "TITAN";
+      SkillDef.menuitems[0].alttext = hexen_skill_fighter[0];
+      SkillDef.menuitems[1].alttext = hexen_skill_fighter[1];
+      SkillDef.menuitems[2].alttext = hexen_skill_fighter[2];
+      SkillDef.menuitems[3].alttext = hexen_skill_fighter[3];
+      SkillDef.menuitems[4].alttext = hexen_skill_fighter[4];
       break;
     case PCLASS_CLERIC:
       SkillDef.x = 116;
-      SkillDef.menuitems[0].alttext = "ALTAR BOY";
-      SkillDef.menuitems[1].alttext = "ACOLYTE";
-      SkillDef.menuitems[2].alttext = "PRIEST";
-      SkillDef.menuitems[3].alttext = "CARDINAL";
-      SkillDef.menuitems[4].alttext = "POPE";
+      SkillDef.menuitems[0].alttext = hexen_skill_cleric[0];
+      SkillDef.menuitems[1].alttext = hexen_skill_cleric[1];
+      SkillDef.menuitems[2].alttext = hexen_skill_cleric[2];
+      SkillDef.menuitems[3].alttext = hexen_skill_cleric[3];
+      SkillDef.menuitems[4].alttext = hexen_skill_cleric[4];
       break;
     case PCLASS_MAGE:
       SkillDef.x = 112;
-      SkillDef.menuitems[0].alttext = "APPRENTICE";
-      SkillDef.menuitems[1].alttext = "ENCHANTER";
-      SkillDef.menuitems[2].alttext = "SORCERER";
-      SkillDef.menuitems[3].alttext = "WARLOCK";
-      SkillDef.menuitems[4].alttext = "ARCHIMAGE";
+      SkillDef.menuitems[0].alttext = hexen_skill_mage[0];
+      SkillDef.menuitems[1].alttext = hexen_skill_mage[1];
+      SkillDef.menuitems[2].alttext = hexen_skill_mage[2];
+      SkillDef.menuitems[3].alttext = hexen_skill_mage[3];
+      SkillDef.menuitems[4].alttext = hexen_skill_mage[4];
+      break;
+    default:
       break;
   }
 }
@@ -209,6 +448,12 @@ void MN_Drawer(void)
       MN_DrTextB(text, x, y);
     y += ITEM_HEIGHT;
   }
+
+  // Don't draw selector on INFO screens for Heretic / Hexen
+  if (currentMenu == &InfoDef1 || currentMenu == &InfoDef2 ||
+      currentMenu == &InfoDef3 || currentMenu == &InfoDef4 ||
+      currentMenu == &ExtHelpDef)
+    return;
 
   if (max)
   {
@@ -341,9 +586,15 @@ void MN_DrawOptions(void)
 
 void MN_DrawSound(void)
 {
-  MN_DrawSlider(SoundDef.x - 8, SoundDef.y + ITEM_HEIGHT * SFX_VOL_INDEX, 16, snd_SfxVolume);
+  char num[4];
 
-  MN_DrawSlider(SoundDef.x - 8, SoundDef.y + ITEM_HEIGHT * MUS_VOL_INDEX, 16, snd_MusicVolume);
+  MN_DrawSlider(SoundDef.x - 8, SoundDef.y + ITEM_HEIGHT * SFX_VOL_INDEX, 16, 16, snd_SfxVolume);
+  snprintf(num, sizeof(num), "%3d", snd_SfxVolume);
+  MN_DrTextA(num, SoundDef.x + 130, SoundDef.y + ITEM_HEIGHT * SFX_VOL_INDEX + 3);
+
+  MN_DrawSlider(SoundDef.x - 8, SoundDef.y + ITEM_HEIGHT * MUS_VOL_INDEX, 16, 16, snd_MusicVolume);
+  snprintf(num, sizeof(num), "%3d", snd_MusicVolume);
+  MN_DrTextA(num, SoundDef.x + 130, SoundDef.y + ITEM_HEIGHT * MUS_VOL_INDEX + 3);
 }
 
 extern char savegamestrings[10][SAVESTRINGSIZE];
@@ -351,7 +602,7 @@ extern char savegamestrings[10][SAVESTRINGSIZE];
 static void MN_DrawFileSlots(int x, int y)
 {
   int i;
-  extern char save_page_string[];
+  extern const char *saves_pages[];
 
   for (i = 0; i < g_menu_save_page_size; i++)
   {
@@ -360,7 +611,7 @@ static void MN_DrawFileSlots(int x, int y)
     y += ITEM_HEIGHT;
   }
 
-  MN_DrTextA(save_page_string, x + 5, y + 5);
+  M_DrawTabs(saves_pages, 5, 135);
 }
 
 void MN_DrawLoad(void)
@@ -422,7 +673,7 @@ void MN_DrTextA(const char *text, int x, int y)
     }
     else
     {
-      lump = FontABaseLump + c - 33;
+      lump = MN_SafeFontALump(c - 33);
       V_DrawNumPatch(x, y, 0, lump, CR_DEFAULT, VPT_STRETCH);
       x += R_NumPatchWidth(lump) - 1;
     }
@@ -458,7 +709,7 @@ int MN_TextAWidth(const char *text)
     }
     else
     {
-      lump = FontABaseLump + c - 33;
+      lump = MN_SafeFontALump(c - 33);
       width += R_NumPatchWidth(lump) - 1;
     }
   }
@@ -509,47 +760,48 @@ int MN_TextBWidth(const char *text)
   return (width);
 }
 
+void MN_DrawTitle(int y, const char *text, int cm)
+{
+  MN_DrTextB(text, 160 - (MN_TextBWidth(text) / 2), y);
+}
+
 #define SLIDER_LIMIT 200
 #define SLIDER_WIDTH (SLIDER_LIMIT - 64)
 #define SLIDER_PATCH_COUNT (SLIDER_WIDTH / 8)
 
-void MN_DrawSlider(int x, int y, int width, int slot)
+void MN_DrawSlider(int x, int y, int width, int range, int slot)
 {
-  int x2;
-  int count;
-  char num[4];
-  int slot_x;
+  int xx;
+  int i;
+  int slot_offset;
   short slider_img = 0;
 
-  width = (width > SLIDER_LIMIT) ? SLIDER_LIMIT : width;
+  width -= 4;
 
-  V_DrawNamePatch(x, y, 0, "M_SLDLT", CR_DEFAULT, VPT_STRETCH);
-
-  for (x2 = x + 32, count = SLIDER_PATCH_COUNT; count--; x2 += 8)
+  xx = x - 12;
+  V_DrawNamePatch(xx, y, 0, "M_SLDLT", CR_DEFAULT, VPT_STRETCH);
+  xx += 32;
+  for (i=0;i<width;i++)
   {
     const char* name;
-
     name = (slider_img & 1 ? "M_SLDMD1" : "M_SLDMD2");
     slider_img ^= 1;
+    V_DrawNamePatch(xx, y, 0, name, CR_DEFAULT, VPT_STRETCH);
 
-    V_DrawNamePatch(x2, y, 0, name, CR_DEFAULT, VPT_STRETCH);
+    xx += 8;
   }
+  V_DrawNamePatch(xx, y, 0, "M_SLDRT", CR_DEFAULT, VPT_STRETCH);
 
-  V_DrawNamePatch(x2, y, 0, "M_SLDRT", CR_DEFAULT, VPT_STRETCH);
-
-  // [crispy] print the value
-  snprintf(num, sizeof(num), "%3d", slot);
-  MN_DrTextA(num, x2 + 32, y + 3);
-
-  // [crispy] do not crash anymore if the value is out of bounds
-  if (slot >= width)
+  if (slot >= range)
   {
-    slot = width - 1;
+    slot = range - 1;
   }
 
-  slot_x = x + 36 + (SLIDER_WIDTH - 8) * slot / (width - 1);
+  width += 1;
 
-  V_DrawNamePatch(slot_x, y + 7, 0, "M_SLDKB", CR_DEFAULT, VPT_STRETCH);
+  slot_offset = 8 * slot * width / range;
+  slot_offset -= range / width;
+  V_DrawNamePatch(x + 20 + slot_offset, y + 7, 0, "M_SLDKB", CR_DEFAULT, VPT_STRETCH);
 }
 
 // hexen

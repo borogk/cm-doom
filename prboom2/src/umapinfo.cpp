@@ -413,24 +413,20 @@ int ParseUMapInfo(const unsigned char *buffer, size_t length, umapinfo_errorfunc
 		ParseMapEntry(scanner, &parsed);
 
 		// Set default level progression here to simplify the checks elsewhere. Doing this lets us skip all normal code for this if nothing has been defined.
-		if (parsed.endpic[0] && (strcmp(parsed.endpic, "-") != 0))
-		{
-			parsed.nextmap[0] = 0;
-		}
-		else if (!parsed.nextmap[0] && !parsed.endpic[0])
+		if (!parsed.nextmap[0] && !parsed.endpic[0])
 		{
 			if (!stricmp(parsed.mapname, "MAP30")) strcpy(parsed.endpic, "$CAST");
 			else if (!stricmp(parsed.mapname, "E1M8"))  strcpy(parsed.endpic, gamemode == retail? "CREDIT" : "HELP2");
 			else if (!stricmp(parsed.mapname, "E2M8"))  strcpy(parsed.endpic, "VICTORY2");
 			else if (!stricmp(parsed.mapname, "E3M8"))  strcpy(parsed.endpic, "$BUNNY");
 			else if (!stricmp(parsed.mapname, "E4M8"))  strcpy(parsed.endpic, "ENDPIC");
-			else if (gamemission == chex && !stricmp(parsed.mapname, "E1M5"))  strcpy(parsed.endpic, "CREDIT");
+			else if (gamemission == tc_chex && !stricmp(parsed.mapname, "E1M5"))  strcpy(parsed.endpic, "CREDIT");
 			else
 			{
 				int ep, map;
 				G_ValidateMapName(parsed.mapname, &ep, &map);
 				map++;
-				sprintf(parsed.nextmap, "%s", VANILLA_MAP_LUMP_NAME(ep, map));
+				snprintf(parsed.nextmap, sizeof(parsed.nextmap), "%s", VANILLA_MAP_LUMP_NAME(ep, map));
 			}
 		}
 

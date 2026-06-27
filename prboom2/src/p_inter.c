@@ -109,6 +109,22 @@ static weapontype_t GetAmmoChange[] = {
 };
 
 //
+// P_AutoSwitchWeapon
+// Autoswitches player to a weapon,
+// Based on config and other conditions.
+//
+
+static void P_AutoSwitchWeapon(player_t *player, weapontype_t weapon)
+{
+  int autoswitch_config = dsda_IntConfig(dsda_config_switch_weapon_on_pickup);
+  int autoswitch = ((allow_incompatibility && !deathmatch && !netgame) ? autoswitch_config : true);
+
+  if (!autoswitch) return;
+
+  player->pendingweapon = weapon;
+}
+
+//
 // P_GiveAmmo
 // Num is the number of clip loads,
 // not the individual count (0= 1/2 clip).
@@ -134,7 +150,7 @@ static dboolean P_GiveAmmoAutoSwitch(player_t *player, ammotype_t ammo, int olda
         weaponinfo[i].ammopershot <= player->ammo[ammo]
       )
       {
-        player->pendingweapon = i;
+        P_AutoSwitchWeapon(player, i);
         break;
       }
     }
@@ -187,7 +203,7 @@ static dboolean P_GiveAmmo(player_t *player, ammotype_t ammo, int num)
     {
         if (player->weaponowned[GetAmmoChange[ammo]])
         {
-            player->pendingweapon = GetAmmoChange[ammo];
+              P_AutoSwitchWeapon(player, GetAmmoChange[ammo]);
         }
     }
 
@@ -199,28 +215,28 @@ static dboolean P_GiveAmmo(player_t *player, ammotype_t ammo, int num)
     case am_clip:
       if (player->readyweapon == wp_fist) {
         if (player->weaponowned[wp_chaingun])
-          player->pendingweapon = wp_chaingun;
+          P_AutoSwitchWeapon(player, wp_chaingun);
         else
-          player->pendingweapon = wp_pistol;
+          P_AutoSwitchWeapon(player, wp_pistol);
       }
       break;
 
     case am_shell:
       if (player->readyweapon == wp_fist || player->readyweapon == wp_pistol)
         if (player->weaponowned[wp_shotgun])
-          player->pendingweapon = wp_shotgun;
+          P_AutoSwitchWeapon(player, wp_shotgun);
       break;
 
       case am_cell:
         if (player->readyweapon == wp_fist || player->readyweapon == wp_pistol)
           if (player->weaponowned[wp_plasma])
-            player->pendingweapon = wp_plasma;
+            P_AutoSwitchWeapon(player, wp_plasma);
         break;
 
       case am_misl:
         if (player->readyweapon == wp_fist)
           if (player->weaponowned[wp_missile])
-            player->pendingweapon = wp_missile;
+            P_AutoSwitchWeapon(player, wp_missile);
     default:
       break;
     }
@@ -249,13 +265,14 @@ dboolean P_GiveWeapon(player_t *player, weapontype_t weapon, dboolean dropped)
       player->weaponowned[weapon] = true;
 
       P_GiveAmmo(player, weaponinfo[weapon].ammo, deathmatch ? 5 : 2);
-
-      player->pendingweapon = weapon;
+      P_AutoSwitchWeapon(player, weapon);
       /* cph 20028/10 - for old-school DM addicts, allow old behavior
        * where only consoleplayer's pickup sounds are heard */
       // displayplayer, not consoleplayer, for viewing multiplayer demos
-      if (!comp[comp_sound] || player == &players[displayplayer])
+      if (!comp[comp_sound])
         S_StartSound (player->mo, sfx_wpnup|PICKUP_SOUND); // killough 4/25/98
+      else if (player == &players[displayplayer])
+        S_StartVoidSound (sfx_wpnup|PICKUP_SOUND);
       return false;
     }
 
@@ -274,7 +291,7 @@ dboolean P_GiveWeapon(player_t *player, weapontype_t weapon, dboolean dropped)
     {
       gaveweapon = true;
       player->weaponowned[weapon] = true;
-      player->pendingweapon = weapon;
+      P_AutoSwitchWeapon(player, weapon);
     }
   return gaveweapon || gaveammo;
 }
@@ -376,7 +393,7 @@ void P_GiveCard(player_t *player, card_t card)
   player->cards[card] = 1;
 
   if (player == &players[consoleplayer])
-    playerkeys |= 1 << card;
+    player->ravenkeys |= 1 << card;
 
   dsda_WatchCard(card);
 }
@@ -626,7 +643,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         return;
       dsda_AddPlayerMessage(s_GOTBERSERK, player);
       if (player->readyweapon != wp_fist)
-        player->pendingweapon = wp_fist;
+        P_AutoSwitchWeapon(player, wp_fist);
       sound = sfx_getpow;
       break;
 
@@ -799,8 +816,10 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
   /* cph 20028/10 - for old-school DM addicts, allow old behavior
    * where only consoleplayer's pickup sounds are heard */
   // displayplayer, not consoleplayer, for viewing multiplayer demos
-  if (!comp[comp_sound] || player == &players[displayplayer])
+  if (!comp[comp_sound])
     S_StartSound (player->mo, sound | PICKUP_SOUND);   // killough 4/25/98
+  else if (player == &players[displayplayer])
+    S_StartVoidSound (sound | PICKUP_SOUND);
 }
 
 //
@@ -1151,7 +1170,7 @@ static void P_KillMobj(mobj_t *source, mobj_t *target)
     target->tics = 1;
 
   // In Chex Quest, monsters don't drop items.
-  if (gamemission == chex)
+  if (gamemission == tc_chex)
   {
     return;
   }
@@ -2294,7 +2313,7 @@ dboolean Heretic_P_GiveWeapon(player_t * player, weapontype_t weapon)
         player->bonuscount += BONUSADD;
         player->weaponowned[weapon] = true;
         P_GiveAmmo(player, wpnlev1info[weapon].ammo, GetWeaponAmmo[weapon]);
-        player->pendingweapon = weapon;
+        P_AutoSwitchWeapon(player, weapon);
         if (player == &players[consoleplayer])
         {
             S_StartVoidSound(heretic_sfx_wpnup);
@@ -2313,7 +2332,7 @@ dboolean Heretic_P_GiveWeapon(player_t * player, weapontype_t weapon)
         player->weaponowned[weapon] = true;
         if (WeaponValue[weapon] > WeaponValue[player->readyweapon])
         {                       // Only switch to more powerful weapons
-            player->pendingweapon = weapon;
+            P_AutoSwitchWeapon(player, weapon);
         }
     }
     return (gaveWeapon || gaveAmmo);
@@ -2839,7 +2858,7 @@ void TryPickupWeapon(player_t * player, pclass_t weaponClass,
         {
             P_GiveMana(player, MANA_2, 25);
         }
-        player->pendingweapon = weaponType;
+        P_AutoSwitchWeapon(player, weaponType);
         remove = false;
     }
     else
@@ -2862,7 +2881,7 @@ void TryPickupWeapon(player_t * player, pclass_t weaponClass,
             player->weaponowned[weaponType] = true;
             if (weaponType > player->readyweapon)
             {                   // Only switch to more powerful weapons
-                player->pendingweapon = weaponType;
+                P_AutoSwitchWeapon(player, weaponType);
             }
         }
         if (!(gaveWeapon || gaveMana))
@@ -2998,7 +3017,7 @@ static void TryPickupWeaponPiece(player_t * player, pclass_t matchClass,
         {
             gaveWeapon = true;
             player->weaponowned[wp_fourth] = true;
-            player->pendingweapon = wp_fourth;
+            P_AutoSwitchWeapon(player, wp_fourth);
         }
     }
 
@@ -3028,7 +3047,7 @@ int P_GiveKey(player_t * player, card_t key)
     player->cards[key] = true;
 
     if (player == &players[consoleplayer])
-      playerkeys |= 1 << key;
+      player->ravenkeys |= 1 << key;
 
     return true;
 }

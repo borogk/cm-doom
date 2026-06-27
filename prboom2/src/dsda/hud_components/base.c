@@ -89,19 +89,21 @@ void dsda_InitPatchHC(dsda_patch_component_t* component, int x_offset, int y_off
 }
 
 int dsda_HexenArmor(player_t* player) {
-  return (pclass[player->pclass].auto_armor_save
-          + player->armorpoints[ARMOR_ARMOR]
-          + player->armorpoints[ARMOR_SHIELD]
-          + player->armorpoints[ARMOR_HELMET]
-          + player->armorpoints[ARMOR_AMULET]) >> FRACBITS;
+  int temp = pclass[player->pclass].auto_armor_save
+             + player->armorpoints[ARMOR_ARMOR]
+             + player->armorpoints[ARMOR_SHIELD]
+             + player->armorpoints[ARMOR_HELMET]
+             + player->armorpoints[ARMOR_AMULET];
+  return FixedDiv(temp, 5 * FRACUNIT) >> FRACBITS;
 }
 
 static void dsda_DrawBigDigit(int x, int y, int cm, int vpt, int digit) {
+  extern int sts_colored_numbers;
   if (digit > 9 || digit < 0)
     return;
 
   snprintf(digit_lump, sizeof(digit_lump), digit_lump_format, digit);
-  V_DrawNamePatch(x, y, FG, digit_lump, cm, vpt | VPT_TRANS);
+  V_DrawNamePatch(x, y, FG, digit_lump, cm, vpt | ((sts_colored_numbers ? VPT_TRANS : VPT_NONE)));
 }
 
 static int digit_mod[6] = { 1, 10, 100, 1000, 10000, 100000 };

@@ -111,6 +111,46 @@ int dsda_DoorType(int index) {
   }
 }
 
+dboolean dsda_IsDeathExitLine(int index)
+{
+  const sector_t *sec = lines[index].frontsector;
+
+  if (raven) return false;
+
+  if (sec->special < 32)
+  {
+    return (sec->special == 11);
+  }
+  else if (mbf21 && sec->special & DEATH_MASK)
+  {
+    const int i = (sec->special & DAMAGE_MASK) >> DAMAGE_SHIFT;
+
+    return (i == 2);
+  }
+
+  return false;
+}
+
+dboolean dsda_IsDeathSecretExitLine(int index)
+{
+  const sector_t *sec = lines[index].frontsector;
+
+  if (raven) return false;
+
+  if (sec->special < 32)
+  {
+    return (sec->special == 11);
+  }
+  else if (mbf21 && sec->special & DEATH_MASK)
+  {
+    const int i = (sec->special & DAMAGE_MASK) >> DAMAGE_SHIFT;
+
+    return (i == 3);
+  }
+
+  return false;
+}
+
 dboolean dsda_IsExitLine(int index) {
   int special = lines[index].special;
 
@@ -120,8 +160,15 @@ dboolean dsda_IsExitLine(int index) {
 
   return special == 11  ||
          special == 52  ||
-         special == 197 ||
-         special == 51  ||
+         special == 197;
+}
+
+dboolean dsda_IsSecretExitLine(int index) {
+  int special = lines[index].special;
+
+  if (map_format.hexen) return false;
+
+  return special == 51  ||
          special == 124 ||
          special == 198;
 }

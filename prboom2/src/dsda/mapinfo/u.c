@@ -95,6 +95,29 @@ int dsda_UNextMap(int* episode, int* map) {
   return false;
 }
 
+int dsda_UPrevMap(int* episode, int* map) {
+  int i;
+
+  if (!gamemapinfo)
+    return false;
+
+  for (i = 0; i < Maps.mapcount; ++i)
+    if (
+      Maps.maps[i].nextsecret[0] &&
+      !stricmp(Maps.maps[i].nextsecret, gamemapinfo->mapname)
+    )
+      return dsda_NameToMap(Maps.maps[i].mapname, episode, map);
+
+  for (i = 0; i < Maps.mapcount; ++i)
+    if (
+      Maps.maps[i].nextmap[0] &&
+      !stricmp(Maps.maps[i].nextmap, gamemapinfo->mapname)
+    )
+      return dsda_NameToMap(Maps.maps[i].mapname, episode, map);
+
+  return dsda_NameToMap(gamemapinfo->mapname, episode, map);
+}
+
 int dsda_UShowNextLocBehaviour(int* behaviour) {
   if (!gamemapinfo)
     return false;
@@ -147,16 +170,14 @@ int dsda_UMusicIndexToLumpNum(int* lump, int music_index) {
   return false;
 }
 
-int dsda_UMapMusic(int* music_index, int* music_lump) {
+int dsda_UMapMusic(int* music_index, int* music_lump, int episode, int map) {
   int lump;
+  struct MapEntry* entry = dsda_UMapEntry(episode, map);
 
-  if (!gamemapinfo)
+  if (!entry || !entry->music[0])
     return false;
 
-  if (!gamemapinfo->music[0])
-    return false;
-
-  lump = W_CheckNumForName(gamemapinfo->music);
+  lump = W_CheckNumForName(entry->music);
 
   if (lump == LUMP_NOT_FOUND)
     return false;
@@ -236,7 +257,7 @@ int dsda_UFTicker(void) {
   const int TEXTWAIT = 250;
   const int NEWTEXTWAIT = 1000;
 
-  if (!demo_compatibility)
+  if (!demo_compatibility || allow_incompatibility)
     WI_checkForAccelerate();
   else {
     int i;
@@ -295,7 +316,7 @@ void dsda_UFDrawer(void) {
   else {
     // e6y: wide-res
     V_ClearBorder();
-    V_DrawNamePatch(0, 0, 0, gamemapinfo->endpic, CR_DEFAULT, VPT_STRETCH);
+    V_DrawNamePatchFS(0, 0, 0, gamemapinfo->endpic, CR_DEFAULT, VPT_STRETCH);
   }
 }
 

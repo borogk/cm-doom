@@ -78,6 +78,11 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "plays the given demo file",
     arg_string,
   },
+  [dsda_arg_playlump] = {
+    "-playlump", NULL, NULL,
+    "plays the given internal demo lump (e.g., DEMO1)",
+    arg_string,
+  },
   [dsda_arg_timedemo] = {
     "-timedemo", NULL, NULL,
     "plays the given demo file as fast as possible, timing the process",
@@ -193,7 +198,7 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "play single player with coop thing spawns",
     arg_null,
   },
-  [dsda_arg_pistolstart] = {
+  [dsda_arg_pistol_start] = {
     "-pistolstart", "-wandstart", NULL,
     "automatically pistol start each map",
     arg_null,
@@ -261,6 +266,11 @@ static arg_config_t arg_config[dsda_arg_count] = {
   [dsda_arg_track_100k] = {
     "-track_100k", NULL, NULL,
     "tracks when 100% kills is reached",
+    arg_null,
+  },
+  [dsda_arg_track_reality] = {
+    "-track_reality", NULL, NULL,
+    "tracks reality and almost reality categories restrictions",
     arg_null,
   },
   [dsda_arg_time_keys] = {
@@ -421,11 +431,6 @@ static arg_config_t arg_config[dsda_arg_count] = {
   [dsda_arg_resetgamma] = {
     "-resetgamma", NULL, NULL,
     "reset gamma and exit",
-    arg_null,
-  },
-  [dsda_arg_forceoldbsp] = {
-    "-forceoldbsp", NULL, NULL,
-    "force classic bsp nodes",
     arg_null,
   },
   [dsda_arg_force_old_zdoom_nodes] = {
@@ -693,20 +698,20 @@ static arg_config_t arg_config[dsda_arg_count] = {
     "loads a Cameraman profile",
     arg_string,
   },
-  [dsda_arg_cman_auto_skip] = {
-    "-cman_auto_skip", NULL, NULL,
-    "automatically skips all the frames before Cameraman 'delay' setting",
+  [dsda_arg_cman_skip] = {
+    "-cman_skip", NULL, NULL,
+    "skips all frames before Cameraman becomes active",
     arg_null,
   },
-  [dsda_arg_cman_auto_exit] = {
-    "-cman_auto_exit", NULL, NULL,
-    "automatically exits as soon as Cameraman profile is done",
+  [dsda_arg_cman_exit] = {
+    "-cman_exit", NULL, NULL,
+    "automatically exits as soon as Cameraman path is done",
     arg_null,
   },
-  [dsda_arg_cman_viddump] = {
-    "-cman_viddump", NULL, NULL,
-    "works the same as -viddump, but only captures the portion when Cameraman is active",
-    arg_string,
+  [dsda_arg_cman_noflash] = {
+    "-cman_noflash", NULL, NULL,
+    "disables gun flashes while Cameraman is active",
+    arg_null,
   },
 };
 
