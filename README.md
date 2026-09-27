@@ -1,21 +1,11 @@
 # cm-doom
 
-This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) source port
-that enables playback of [Cameraman](https://github.com/borogk/cameraman) profiles.
+This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) source port that enables playback of [Cameraman](https://github.com/borogk/cameraman) profiles.
 
-**Cameraman** allows interactively drawing paths for the camera and instantly trying them out in-engine.
-It also allows saving **camera profiles** as separate files to load and re-play them later.
-
-> [!IMPORTANT]
-> **This source port is meant to be used in tandem with Cameraman!** 
-> 
-> It's essential to know your way around **Cameraman** before using **cm-doom**.
-> Visit [Cameraman GitHub repo](https://github.com/borogk/cameraman) for installation and usage instructions.
+**Cameraman** allows interactively drawing camera paths and instantly trying them out in-engine.
+It also allows saving **camera profiles** as separate files. These camera profiles can then be loaded into **cm-doom** for playback in the DSDA-Doom engine.
 
 ## Installation
-
-> [!NOTE]
-> Pre-built binaries are currently only available for Windows
 
 | Platform | Instructions                                                                                                                                                                                                                                                             |
 |----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -25,8 +15,14 @@ It also allows saving **camera profiles** as separate files to load and re-play 
 
 ## How to use
 
-> [!NOTE]
-> cm-doom relies on Cameraman profiles that are exported as `.cman` files ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor))
+> [!IMPORTANT]
+> **This source port requires knowledge of how to use Cameraman!**
+> 
+> You are meant to use **cm-doom** in tandem with **Cameraman**, therefore: 
+> 
+> 1. Visit [Cameraman's page on GitHub](https://github.com/borogk/cameraman) for installation and usage instructions.
+> 2. Knowing how to draw and play camera paths isn't enough, Make sure you understand [how to export camera profiles](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor).
+> 3. Basic terminal usage skills are required for both **cm-doom** and **Cameraman**.
 
 Run cm-doom with the following fork-specific command line parameters (all are optional):
 
@@ -34,23 +30,23 @@ Run cm-doom with the following fork-specific command line parameters (all are op
 |-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `-cman <file>`  | Load a camera profile (`.cman` file) previously exported by the Cameraman editor. If not specified, Cameraman functionality is disabled and all parameters described below are ignored. |
 | `-cman_skip`    | Automatically skip to the frame when the camera becomes active (`delay` parameter in camera profile).                                                                                   |
-| `-cman_exit`    | Automatically exit as soon as the camera path is completed.                                                                                                                             |                                                                                                                                                                                                                                                   |
+| `-cman_exit`    | Automatically exit as soon as the camera path is completed.                                                                                                                             |
 | `-cman_noflash` | Disable gun flashes lighting up the environment, in case you find them distracting.                                                                                                     |
 
 Examples:
 
 ```shell
 # Runs the game with a camera profile
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -cman test.cman
+cm-doom -iwad DOOM2 -cl 2 -warp 1 -cman export-0001.cman
 
 # Plays a demo alongside a camera profile
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman
+cm-doom -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman export-0001.cman
 
 # Same as above, but skips to the camera playback
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman test.cman -cman_skip
+cm-doom -iwad DOOM2 -cl 2 -warp 1 -playdemo demo.lmp -cman export-0001.cman -cman_skip
 
 # Outputs the demo+camera playback to a video clip, immediately exiting after it's done
-cm-doom.exe -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman test.cman -cman_skip -cman_exit -viddump vid.mkv
+cm-doom -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman export-0001.cman -cman_skip -cman_exit -viddump vid.mkv
 ```
 
 ## Advantages
