@@ -14,7 +14,7 @@ It also allows saving **camera profiles** as separate files to load and re-play 
 
 ## Installation
 
-> [!INFO]
+> [!NOTE]
 > Pre-built binaries are currently only available for Windows
 
 | Platform | Instructions                                                                                                                                                                                                                                                             |
@@ -25,7 +25,7 @@ It also allows saving **camera profiles** as separate files to load and re-play 
 
 ## How to use
 
-> [!INFO]
+> [!NOTE]
 > cm-doom relies on Cameraman profiles that are exported as `.cman` files ([how to export](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor))
 
 Run cm-doom with the following fork-specific command line parameters (all are optional):
