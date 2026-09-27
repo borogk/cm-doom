@@ -1,6 +1,6 @@
 # cm-doom
 
-This is a special fork of [dsda-doom](https://github.com/kraflab/dsda-doom) source port that enables playback of [Cameraman](https://github.com/borogk/cameraman) profiles.
+This is a special fork of [DSDA-Doom](https://github.com/kraflab/dsda-doom) source port that enables playback of [Cameraman](https://github.com/borogk/cameraman) profiles.
 
 **Cameraman** allows interactively drawing camera paths and instantly trying them out in-engine.
 It also allows saving **camera profiles** as separate files. These camera profiles can then be loaded into **cm-doom** for playback in the DSDA-Doom engine.
@@ -20,9 +20,9 @@ It also allows saving **camera profiles** as separate files. These camera profil
 > 
 > You are meant to use **cm-doom** in tandem with **Cameraman**, therefore: 
 > 
-> 1. Visit [Cameraman's page on GitHub](https://github.com/borogk/cameraman) for installation and usage instructions.
-> 2. Knowing how to draw and play camera paths isn't enough, Make sure you understand [how to export camera profiles](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor).
-> 3. Basic terminal usage skills are required for both **cm-doom** and **Cameraman**.
+> 1. Visit [Cameraman's page on GitHub](https://github.com/borogk/cameraman) for installation and usage instructions
+> 2. Knowing how to draw and play camera paths isn't enough, make sure you understand [how to export camera profiles](https://github.com/borogk/zdoom-cameraman/blob/main/docs/ch05.player.md#how-to-export-a-camera-profile-from-editor)
+> 3. Basic terminal usage skills are required, enough to be comfortable using parameters like `-iwad`, `-file`, `-playdemo` etc.
 
 Run cm-doom with the following fork-specific command line parameters (all are optional):
 
@@ -51,7 +51,7 @@ cm-doom -iwad DOOM2 -cl 2 -warp 1 -timedemo demo.lmp -cman export-0001.cman -cma
 
 ## Advantages
 
-Playing Cameraman profiles in dsda-doom engine offers a few advantages over ZDoom:
+Playing Cameraman profiles in DSDA-Doom engine offers a few advantages over ZDoom:
 
 1. **Accurate demo playback.**
    You can capture "cinematic" playthrough of almost any existing Doom speedrun,
@@ -64,7 +64,7 @@ Playing Cameraman profiles in dsda-doom engine offers a few advantages over ZDoo
    Both software and OpenGL rendering modes look much closer to the original Doom for MS-DOS.
    Original lighting in particular is challenging to reproduce in ZDoom variants, as well as some rendering artifacts.
 
-## How different is cm-doom from dsda-doom?
+## How different is cm-doom from DSDA-Doom?
 
 Almost identical. This fork strictly adds a bit of functionality to upstream without removing or "fixing" anything.
 
@@ -74,20 +74,20 @@ should you decide to have both ports installed.
 For simplicity, pretty much all new code is in [cman.h](prboom2/src/cman.h) and [cman.c](prboom2/src/cman.c).
 Any interactions between this module and the existing codebase are kept to a bare minimum.
 
-Outside of extra Cameraman features, it should be safe to use this port in place of regular dsda-doom
+Outside of extra Cameraman features, it should be safe to use this port in place of regular DSDA-Doom
 for normal play, speedrunning, etc. But in case you're extra worried, stick to the original DSDA port and only
 use cm-doom for Cameraman stuff.
 
 ## Future support strategy
 
 The current plan is to focus on **only developing things related to Cameraman.**
-All other functionality would be regularly pulled from upstream dsda-doom releases as is.
+All other functionality would be regularly pulled from upstream DSDA-Doom releases as is.
 
 ## Author and contributors
 
 Originally created by **borogk** in 2024.
 
-Based on [dsda-doom](https://github.com/kraflab/dsda-doom), see its contributors on the respective repository page.
+Based on [DSDA-Doom](https://github.com/kraflab/dsda-doom), see its contributors on the respective repository page.
 
 Original README is copied over to [README_DSDA.md](README_DSDA.md) out of courtesy.
 
