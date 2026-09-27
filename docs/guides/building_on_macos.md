@@ -1,10 +1,10 @@
-# Building DSDA-Doom on macOS
+# Building cm-doom on macOS
 
-This is a basic guide for making a release build of DSDA-Doom on macOS using tools and libraries from brew.
+This is a basic guide for making a release build of cm-doom on macOS using tools and libraries from brew.
 
 ## Prerequisites
 
-In order to build DSDA-Doom, the following tools are needed:
+In order to build cm-doom, the following tools are needed:
 - Xcode's Command Line Tools, installed by running `xcode-select --install` from a terminal.
 - The Homebrew package manager, refer to [this page](https://brew.sh/) for installation.
 
@@ -12,8 +12,8 @@ This guide assumes all the commands are ran from the root directory of the repos
 directory after cloning the sources:
 
 ```
-git clone https://github.com/kraflab/dsda-doom.git
-cd dsda-doom
+git clone https://github.com/borogk/cm-doom.git
+cd cm-doom
 ```
 
 ## Installing Dependencies
@@ -26,7 +26,7 @@ brew bundle
 
 ## Building
 
-DSDA-Doom is built using CMake. The project first needs to be configured:
+cm-doom is built using CMake. The project first needs to be configured:
 
 ```
 cmake -S prboom2 -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
@@ -40,7 +40,7 @@ cmake --build build
 
 ## Installing
 
-DSDA-Doom can be installed system-wide by running the following command:
+cm-doom can be installed system-wide by running the following command:
 ```
 cmake --install build
 ```
@@ -58,4 +58,4 @@ cd build
 cpack -G External
 ```
 
-This will generate a file called `dsda-doom-x.y.z-Darwin.zip` (where `x.y.z` corresponds to the current version).
+This will generate a file called `cm-doom-x.y.z-Darwin.zip` (where `x.y.z` corresponds to the current version).

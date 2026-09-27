@@ -1,6 +1,6 @@
-# Building DSDA-Doom on Windows
+# Building cm-doom on Windows
 
-This is a guide for building DSDA-Doom on Windows. It covers the use of MSVC and MSYS2.
+This is a guide for building cm-doom on Windows. It covers the use of MSVC and MSYS2.
 
 ## Building using MSVC
 
@@ -42,28 +42,28 @@ vcpkg integrate install
 
 ### Building with Visual Studio
 
-Open Visual Studio, and select the "Clone a repository" option. The repository location is `https://github.com/kraflab/dsda-doom.git`, and the path you provide is where the files will be copied to, for example `C:/git/dsda-doom/`. If you already have cloned the repository beforehand, select "Open" and "Open Folder", you should **not** use the "CMake" option as this repo uses an uncommon layout.
+Open Visual Studio, and select the "Clone a repository" option. The repository location is `https://github.com/borogk/cm-doom.git`, and the path you provide is where the files will be copied to, for example `C:/git/cm-doom/`. If you already have cloned the repository beforehand, select "Open" and "Open Folder", you should **not** use the "CMake" option as this repo uses an uncommon layout.
 
-To generate the CMake cache, select "Project" and then "Configure Cache". During configuration, the vcpkg toolchain will be automatically provided to CMake and it will compile all the dependencies. Once it finishes, you should be able to select `dsda-doom.exe` as a startup item and run it.
+To generate the CMake cache, select "Project" and then "Configure Cache". During configuration, the vcpkg toolchain will be automatically provided to CMake and it will compile all the dependencies. Once it finishes, you should be able to select `cm-doom.exe` as a startup item and run it.
 
-By default, the CMake integration only provides an `x64-Debug` configuration. To add a release configuration, head back to "Project" and select "CMake settings for dsda-doom".
+By default, the CMake integration only provides an `x64-Debug` configuration. To add a release configuration, head back to "Project" and select "CMake settings for cm-doom".
 
 On the left, you should see a list of all the configurations you have, click the green + at the top and search for `x64-Release`. After adding it, you should now be able to switch configuration at the top. This menu also lets you customise the CMake cache and set defaults.
 
-To install a build, select "Build" and then "Install dsda-doom". The default directories for build and install are, respectively, `prboom2/out/build/<config>` and `prboom2/out/install/<config>`.
+To install a build, select "Build" and then "Install cm-doom". The default directories for build and install are, respectively, `prboom2/out/build/<config>` and `prboom2/out/install/<config>`.
 
 ### Building from the terminal
 
 Make a clone of the repository:
 
 ```
-git clone https://github.com/kraflab/dsda-doom.git
+git clone https://github.com/borogk/cm-doom.git
 ```
 
 Run the CMake configuration:
 
 ```
-cd dsda-doom
+cd cm-doom
 cmake -Sprboom2 -Bbuild -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake" -DENABLE_LTO=ON
 ```
 
@@ -77,11 +77,11 @@ cmake --build build --config Release
 
 You may replace `Release` with `Debug`, `MinSizeRel`, or `RelWithDebInfo` depending on your needs.
 
-You should then be able to run dsda-doom from the build directory:
+You should then be able to run cm-doom from the build directory:
 
 ```
 cd build/Release
-./dsda-doom
+./cm-doom
 ```
 
 ### Building with Visual Studio Code
@@ -89,7 +89,7 @@ cd build/Release
 Make a clone of the repository:
 
 ```
-git clone https://github.com/kraflab/dsda-doom.git
+git clone https://github.com/borogk/cm-doom.git
 ```
 
 You can either use an extension such as CMake Tools or the integrated terminal to compile. The first time you open the directory, you will be prompted to install recommended extensions for syntax highlighting and CMake support.
@@ -131,13 +131,13 @@ pacman -S mingw-w64-ucrt-x86_64-libxmp mingw-w64-ucrt-x86_64-fluidsynth mingw-w6
 Make a clone of the repository:
 
 ```
-git clone https://github.com/kraflab/dsda-doom.git
+git clone https://github.com/borogk/cm-doom.git
 ```
 
 Run the CMake configuration:
 
 ```
-cd dsda-doom
+cd cm-doom
 cmake -Sprboom2 -Bbuild -GNinja -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -149,11 +149,11 @@ And finally, build the project:
 cmake --build build --config Release
 ```
 
-You should then be able to run dsda-doom from the build directory:
+You should then be able to run cm-doom from the build directory:
 
 ```
 cd build
-./dsda-doom
+./cm-doom
 ```
 
 You will only be able to run the executable from the MSYS2 Terminal directly as the necessary DLLs are not copied over to the build directory.
@@ -177,13 +177,13 @@ cd build
 cpack -G ZIP -C Release
 ```
 
-This will produce a zip archive in your build directory named `dsda-doom-<version>-win64` which contains everything necessary to run the game.
+This will produce a zip archive in your build directory named `cm-doom-<version>-win64` which contains everything necessary to run the game.
 
 ## Troubleshooting
 
 ### IdentifyVersion: IWAD not found
 
-This is not related to build issues, DSDA-Doom is only a Doom port. You will need to provide your own copy of DOOM, DOOM2, Final Doom, Heretic, or Hexen.
+This is not related to build issues, cm-doom is only a Doom port. You will need to provide your own copy of DOOM, DOOM2, Final Doom, Heretic, or Hexen.
 
 ### Could NOT find \<Package\>
 
@@ -199,7 +199,7 @@ Make sure you ran `bootstrap-vcpkg.bat`, added the vcpkg directory to your `PATH
 
 You are probably using CMD.exe and all its quirks (`cd C:` does not go to `C:\`, `./command` does not work, etc.). Either use powershell, or adapt the commands.
 
-### My prebuilt dependencies in `dsda-doom/dependencies_x64` are no longer picked up by CMake!
+### My prebuilt dependencies in `cm-doom/dependencies_x64` are no longer picked up by CMake!
 
 Back when prboom-plus added this feature, getting all the dependencies for MSVC was much more difficult. So prebuilt binaries were distributed through a release and users were expected to unpack the two `dependencies_<arch>` directories at the root of the repository.
 

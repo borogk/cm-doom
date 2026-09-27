@@ -2,7 +2,7 @@ Basic Installation (ZIP, tarball, Git)
 ==================
 Prerequisites
 
-1. To compile DSDA-Doom, you need at least SDL2. For various extensions and optional features, the following are also required:
+1. To compile cm-doom, you need at least SDL2. For various extensions and optional features, the following are also required:
    - SDL2_image (for high-res textures in OpenGL and PNG screenshots)
    - For music support, some or all of:
      * SDL2_mixer (MIDI, TiMidity)
@@ -26,9 +26,9 @@ On a typical Fedora system, these commands may be sufficient:
 As well as the following:
 `sudo dnf install SDL2_mixer-devel SDL2_image-devel mesa-libGLU-devel libzip-devel libzip-tools zlib-static libvorbis-devel libmad-devel libxmp-devel portmidi-devel fluidsynth-devel`
 
-2. Clone the repository and navigate to the directory containing the DSDA-Doom distribution (the directory this file is in, prboom2).
-`git clone https://github.com/kraflab/dsda-doom.git`
-`cd dsda-doom/prboom2`
+2. Clone the repository and navigate to the directory containing the cm-doom distribution (the directory this file is in, prboom2).
+`git clone https://github.com/borogk/cm-doom.git`
+`cd cm-doom/prboom2`
 
 3. Create a new build folder and navigate into it:
 `mkdir build && cd build`
@@ -40,11 +40,11 @@ As well as the following:
 
 This should end with the message "Build files have been written to: [folderpath]".
 
-5. Compile DSDA-Doom by typing `make`.
+5. Compile cm-doom by typing `make`.
 This may take some time; while it's compiling I suggest you read the `README`, or maybe go and look for some good doom levels to play when it's finished :-).
 This should work on all Linux systems, but systems that have a `make` utility other than GNU make may have problems. E.g. you might need to install GNU make, and then use it instead of make for these instructions. I have tested BSD `pmake` and it works fine.
 
-6. To install the programs, data files, and man pages for DSDA-Doom, run:
+6. To install the programs, data files, and man pages for cm-doom, run:
 `sudo make install/strip`
 If you don't have root access, ask your system administrator to perform this step. If you want to install manually, put the `dsda-doom.wad` in `/usr/local/share/games/doom/` (or create a symlink to it).
 
@@ -54,12 +54,12 @@ If you have a system with many users, read the license for your version of Doom 
 
 8. You can remove the program binaries and object files from the source directory by typing `make clean`. To also remove the files that `cmake` created, type: `make distclean`
 
-9. DSDA-Doom is now ready for use. If `/usr/local/games` is in your path, you can run `dsda-doom`; otherwise, use the full path.
+9. cm-doom is now ready for use. If `/usr/local/games` is in your path, you can run `cm-doom`; otherwise, use the full path.
 
 Building an RPM
 ==================
 
-If you are on a system that uses the RPM packaging format, you might prefer to build an RPM containing the DSDA-Doom binaries rather than installing them directly. Follow steps 2-6 above, then run `make rpm`. This performs the usual procedure for building the RPM in `/usr/src/redhat/`.
+If you are on a system that uses the RPM packaging format, you might prefer to build an RPM containing the cm-doom binaries rather than installing them directly. Follow steps 2-6 above, then run `make rpm`. This performs the usual procedure for building the RPM in `/usr/src/redhat/`.
 
 Note that the RPM sets its own parameters for `cmake`; if you want to override them, you'll have to edit the build scripts yourself. To get the correct permissions, you either have to run this process as root or use the wrapper program `fakeroot` (version 0.4.5 or later - usually available from `apt` or `dnf`) and ensure you have permissions to the RPM build area.
 
