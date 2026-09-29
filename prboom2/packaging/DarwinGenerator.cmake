@@ -3,8 +3,8 @@ set(packaged_dir "${CPACK_TEMPORARY_DIRECTORY}/${CPACK_PACKAGE_FILE_NAME}")
 file(MAKE_DIRECTORY ${packaged_dir})
 
 file(COPY_FILE
-  ${staging_dir}/${CPACK_BIN_DIR}/dsda-doom
-  ${packaged_dir}/dsda-doom
+  ${staging_dir}/${CPACK_BIN_DIR}/cm-doom
+  ${packaged_dir}/cm-doom
 )
 
 file(COPY_FILE
@@ -35,7 +35,7 @@ if(NOT CPACK_VCPKG_LIBRARY_LINKAGE STREQUAL "static")
       --bundle-deps
       --create-dir
       --overwrite-files
-      --fix-file ${packaged_dir}/dsda-doom
+      --fix-file ${packaged_dir}/cm-doom
       --install-path @executable_path/libs_${CPACK_SYSTEM_PROCESSOR}
       --dest-dir ${packaged_dir}/libs_${CPACK_SYSTEM_PROCESSOR}
   )
