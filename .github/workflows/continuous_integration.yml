@@ -171,9 +171,9 @@ jobs:
       - name: Lipo builds (universal)
         if: matrix.config.name == 'macOS universal (vcpkg)'
         run: |
-            lipo build/dsda-doom build-x64/dsda-doom -create -output dsda-doom
-            rm build/dsda-doom
-            mv dsda-doom build
+            lipo build/cm-doom build-x64/cm-doom -create -output cm-doom
+            rm build/cm-doom
+            mv cm-doom build
 
       # Delete the old cache on hit to emulate a cache update.
       - name: Delete old vcpkg cache
