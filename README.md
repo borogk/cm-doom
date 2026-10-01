@@ -66,22 +66,18 @@ Playing Cameraman profiles in DSDA-Doom engine offers a few advantages over ZDoo
 
 ## How different is cm-doom from DSDA-Doom?
 
-Almost identical. This fork strictly adds a bit of functionality to upstream without removing or "fixing" anything.
-
-The project is set up to build `cm-doom` executable instead of `dsda-doom`, just so there is no clash
-should you decide to have both ports installed.
-
-For simplicity, pretty much all new code is in [cman.h](prboom2/src/cman.h) and [cman.c](prboom2/src/cman.c).
-Any interactions between this module and the existing codebase are kept to a bare minimum.
+This fork strictly adds a bit of functionality to upstream without removing or "fixing" anything.
 
 Outside of extra Cameraman features, it should be safe to use this port in place of regular DSDA-Doom
-for normal play, speedrunning, etc. But in case you're extra worried, stick to the original DSDA port and only
-use cm-doom for Cameraman stuff.
+for normal play, speedrunning, etc. But in case you're extra worried, stick to the original DSDA port
+and only use cm-doom for Cameraman stuff.
+
+The exhaustive list of changes can be found on [Changes compared to upstream](docs/cm-doom/changes-compared-to-upstream.md) page.
 
 ## Future support strategy
 
 The current plan is to focus on **only developing things related to Cameraman.**
-All other functionality would be regularly pulled from upstream DSDA-Doom releases as is.
+All other functionality will be regularly pulled from upstream DSDA-Doom releases as is.
 
 ## Author and contributors
 
