@@ -1,9 +1,7 @@
 # Changes compared to upstream
 
 Below is the exhaustive list of all changes to `cm-doom` fork compared to [DSDA-Doom](https://github.com/kraflab/dsda-doom).
-
-> [!TIP]
-> This document also serves as a checklist of things to look out for after merging from upstream
+This document also serves as a checklist of things to look out for after merging from upstream.
 
 ## Cameraman features
 

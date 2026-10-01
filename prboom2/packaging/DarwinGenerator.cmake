@@ -19,9 +19,9 @@ file(COPY_FILE
 
 file(WRITE
   "${packaged_dir}/Troubleshooting.txt"
-  "If you are getting errors like 'Apple is not able to verify that dsda-doom is free from malware that could harm your Mac'\n"
+  "If you are getting errors like 'Apple is not able to verify that cm-doom is free from malware that could harm your Mac'\n"
   "Run the following command:\n\n"
-  "xattr -dr com.apple.quarantine path/to/dsda-doom\n"
+  "xattr -dr com.apple.quarantine path/to/cm-doom\n"
 )
 
 if(NOT CPACK_VCPKG_LIBRARY_LINKAGE STREQUAL "static")

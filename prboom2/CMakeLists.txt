@@ -28,7 +28,7 @@ endif()
 set(PROJECT_TARNAME "dsda-doom")
 set(WAD_DATA "dsda-doom.wad")
 set(PROJECT_STRING "${PROJECT_NAME} ${PROJECT_VERSION}")
-set(UPSTREAM_PROJECT_STRING "dsda-doom 0.30.0")
+set(UPSTREAM_PROJECT_STRING "DSDA-Doom 0.30.0")
 
 include(DsdaOptions)
 include(DsdaTargetFeatures)
