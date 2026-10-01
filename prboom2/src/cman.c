@@ -94,6 +94,10 @@ dboolean cman_noflash = false;
 // Track active state to detect changes
 dboolean cman_was_active = false;
 
+// Log progress tracking
+#define CMAN_LOG_PROGRESS_STEP 35
+dboolean cman_stop_logging_progress = false;
+
 // Angle buffer
 struct
 {
@@ -381,6 +385,20 @@ int CMAN_Ticker()
   // Calculate next camera values
   float t = (float)cman_time;
   float progress = CMAN_NextValues(t);
+
+  // Log camera path progress
+  if (!cman_stop_logging_progress && (cman_time % CMAN_LOG_PROGRESS_STEP == 0 || progress >= 1.f))
+  {
+    int min = cman_time / 35 / 60;
+    int sec = cman_time / 35 % 60;
+    int percent = (int)(progress * 100.0f);
+    if (percent >= 100)
+    {
+      percent = 100;
+      cman_stop_logging_progress = true;
+    }
+    lprintf(LO_INFO, "Camera progress: %02d:%02ds (%d%)\n", min, sec, percent);
+  }
 
   // Update the camera values as long as the camera path is not completed
   if (progress < 1.f)

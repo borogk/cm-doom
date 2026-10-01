@@ -28,11 +28,16 @@ This approach should reduce any risk of messing up existing functionality.
 - `cman.h` should be included
 - `P_WalkTicker()` function should call `CMAN_Ticker()` as the very first thing and abort futher processing depending on its result
 
-### Skip feature integration
+### Skip feature
 
 [skip.c](../../prboom2/src/dsda/skip.c)
 - `cman.h` should be included
 - `dsda_HandleSkip()` function should set `demo_skiptics` variable if needed
+
+### Headless feature
+
+[i_video.c](../../prboom2/src/SDL/i_video.c)
+- `I_UpdateVideoMode()` function should check for `-cman_headless` flag before passing init flags into `SDL_CreateWindow()`
 
 ### CLI arguments integration
 

@@ -153,6 +153,7 @@ typedef enum {
   dsda_arg_cman_skip,
   dsda_arg_cman_exit,
   dsda_arg_cman_noflash,
+  dsda_arg_cman_headless,
   dsda_arg_count,
 } dsda_arg_identifier_t;
 

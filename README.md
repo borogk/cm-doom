@@ -26,12 +26,13 @@ It also allows saving **camera profiles** as separate files. These camera profil
 
 Run cm-doom with the following fork-specific command line parameters (all are optional):
 
-| Parameter       | Description                                                                                                                                                                             |
-|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `-cman <file>`  | Load a camera profile (`.cman` file) previously exported by the Cameraman editor. If not specified, Cameraman functionality is disabled and all parameters described below are ignored. |
-| `-cman_skip`    | Automatically skip to the frame when the camera becomes active (`delay` parameter in camera profile).                                                                                   |
-| `-cman_exit`    | Automatically exit as soon as the camera path is completed.                                                                                                                             |
-| `-cman_noflash` | Disable gun flashes lighting up the environment, in case you find them distracting.                                                                                                     |
+| Parameter        | Description                                                                                                                                                                             |
+|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `-cman <file>`   | Load a camera profile (`.cman` file) previously exported by the Cameraman editor. If not specified, Cameraman functionality is disabled and all parameters described below are ignored. |
+| `-cman_skip`     | Automatically skip to the frame when the camera becomes active (`delay` parameter in camera profile).                                                                                   |
+| `-cman_exit`     | Automatically exit as soon as the camera path is completed.                                                                                                                             |
+| `-cman_noflash`  | Disable gun flashes lighting up the environment, in case you find them distracting.                                                                                                     |
+| `-cman_headless` | Run in headless mode (no on-screen graphics output). Only really useful when paired with `-viddump`.                                                                                    |
 
 Examples:
 
