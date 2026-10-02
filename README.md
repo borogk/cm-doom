@@ -5,13 +5,13 @@ This is a special fork of [DSDA-Doom](https://github.com/kraflab/dsda-doom) sour
 **Cameraman** allows interactively drawing camera paths and instantly trying them out in-engine.
 It also allows saving **camera profiles** as separate files. These camera profiles can then be loaded into **cm-doom** for playback in the DSDA-Doom engine.
 
-## Installation
+## Downloads
 
-| Platform | Instructions                                                                                                                                                                                                                                                             |
-|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Windows  | Download pre-built binaries [windows-cm-doom-1.0.0.zip](https://github.com/borogk/cm-doom/releases/download/v1.0.0/windows-cm-doom-1.0.0.zip). If you want to compile from sources instead, follow [build instructions for Windows](docs/guides/building_on_windows.md). |
-| Linux    | Follow [build instructions for Linux](prboom2/INSTALL).                                                                                                                                                                                                                  |
-| macOS    | Follow [build instructions for macOS](docs/guides/building_on_macos.md).                                                                                                                                                                                                 |
+| File name                                                                                                                                    | Platform |
+|----------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| [cm-doom-1.1.0-win-x64.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-win-x64.zip)                     | Windows  |
+| [cm-doom-1.1.0-linux-x86_64.appimage](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-linux-x86_64.appimage) | Linux    |
+| [cm-doom-1.1.0-mac-uni.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-mac-uni.zip)                     | macOS    |
 
 ## How to use
 
@@ -31,7 +31,7 @@ Quick start example:
 cm-doom -iwad DOOM2.WAD -cl 2 -warp 1 -cman export-0001.cman
 ```
 
-More can be found on the [How to use cm-doom (advanced)](docs/cm-doom/how_to_use_advanced.md) page. 
+More information can be found on the [How to use cm-doom (advanced)](docs/cm-doom/how_to_use_advanced.md) page. 
 
 ## Advantages
 
