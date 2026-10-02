@@ -25,7 +25,7 @@ cm-doom introduces a few CLI arguments on top of DSDA-Doom ones:
 It's **highly recommended** to go through the ["Player" chapter](https://github.com/borogk/cameraman/blob/main/docs/ch05.player.md)
 from Cameraman's manual if you haven't already, learning to use cm-doom builds on that knowledge.
 
-Now you should know how to export camera profiles. Try playing them back in cm-doom:
+Try exporting a camera profile and playing it back in cm-doom:
 
 ```shell
 cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1
@@ -47,16 +47,12 @@ cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1
 When capturing demos, it makes sense to split overall video into multiple clips, each responsible for a certain interval.
 
 For example, your demo is 30 seconds long, and you decide to splice it like this:
-1. `00:00 - 00:09s`
-2. `00:10 - 00:15s`
-3. `00:16 - 00:30s`
+1. 00:00 - 00:09
+2. 00:10 - 00:15
+3. 00:16 - 00:30
 
-Starting from the second fragment, you should start using Cameraman's `delay` parameter. Open any exported `.cman` file and you would see it:
-```text
-delay = 350
-```
-
-When a profile with such a parameter loaded, the camera would only activate once 350 gametics (exactly 10 seconds) have passed since the level start.
+Starting from the second fragment, you should start using Cameraman's `delay` parameter that gets saved into `.cman` file. 
+For example, `delay = 350` means that the camera would only activate once 350 gametics (exactly 10 seconds) have passed since the level start.
 
 You can **skip rendering all the frames before the camera activates**, since you won't need to be capturing those.
 Simply add `-cman_skip` parameter, for example:
