@@ -72,6 +72,20 @@ cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1 -cman_exit
 
 Running the above command would auto-quit the game once the camera is done moving.
 
+## Disabling gun flashes
+
+Classic Doom has a quirky implementation of gun flashes. Whenever the player is firing a gun, **the entire level**
+gets increased in brightness. 
+
+Usually this is fine. After all, the effect was meant to be seen from a first-person perspective only.
+However, when during demo playback the camera is far away from the player model, the flashes may appear distracting.
+
+To disable gun flash effect simply add `-cman_noflash` argument:
+
+```shell
+cm-doom -cman export-0001.cman -iwad DOOM2.WAD -cl 2 -warp 1 -playdemo demo.lmp -cman_noflash
+```
+
 ## Viddump
 
 Viddump allows capturing demo playback into video files without relying on realtime direct screen capture (OBS or similar). 
@@ -112,10 +126,18 @@ cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1 -viddump video.mp4 -cman_
 > 1. If both `-cman` and `-viddump` arguments are present, frame pacing is switched off for proper video capture (no demo playback is necessary)
 > 2. If `-cman`, `-viddump` and demo playback arguments are present, it always behaves as if the demo was loaded via `-timedemo`
 
-If you want a clip with specific resolution, include `-width` and `-height` arguments:
+One more tip, if you want a clip with specific resolution, include `-width` and `-height` arguments:
 
 ```shell
 cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1 -viddump video.mp4 -width 1280 -height 720
+```
+
+Finally, once you set up your camera-to-video-file pipeline, you might not need to look at the game UI at all.
+Running cm-doom in **headless mode** prevents the game window from showing up, while the video still gets rendered
+in the background:
+
+```shell
+cm-doom -cman export-0001.cman -iwad DOOM2.WAD -warp 1 -viddump video.mp4 -cman_skip -cman_exit -cman_headless
 ```
 
 ## Video encoding customization
@@ -135,7 +157,6 @@ This is how video capture works:
 3. Before exiting the game, `cap_muxcommand` is executed to combine audio and video data into the file specified next to `-viddump` argument
 
 Fully understanding how to customize this mess requires some `ffmpeg` knowledge and frankly is out of scope of this documentation.
-
 Nonetheless, here are a few tips to get started:
 
 1. `-c:a` parameter switches the audio codec, for example `-c:a aac` switches to AAC encoding
