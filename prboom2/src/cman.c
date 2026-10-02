@@ -397,7 +397,7 @@ int CMAN_Ticker()
       percent = 100;
       cman_stop_logging_progress = true;
     }
-    lprintf(LO_INFO, "Camera progress: %02d:%02ds (%d%)\n", min, sec, percent);
+    lprintf(LO_INFO, "Camera progress: %02d:%02ds (%d%%)\n", min, sec, percent);
   }
 
   // Update the camera values as long as the camera path is not completed
