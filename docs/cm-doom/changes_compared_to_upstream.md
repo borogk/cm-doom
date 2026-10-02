@@ -100,6 +100,7 @@ Most of the changes listed in this section exist only to facilitate this decisio
 
 [continuous_integration.yml](../../.github/workflows/continuous_integration.yml)
 - `Lipo builds (universal)` step should reference `cm-doom` executables instead of `dsda-doom`
+- `release` property should be set to false for all jobs to disable the auto-release plugin
 
 ## Documentation
 

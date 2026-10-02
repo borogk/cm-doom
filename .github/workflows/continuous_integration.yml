@@ -23,7 +23,7 @@ jobs:
             triplet: x64-windows-static-release
             shell: pwsh
             package_name: "windows_x64_msvc"
-            release: true
+            release: false
             artifact-path: build/*.zip
             extra_options: >-
               -A x64
@@ -39,7 +39,7 @@ jobs:
             triplet: arm64-osx
             shell: bash
             package_name: "mac_uni_static"
-            release: true
+            release: false
             artifact-path: build/*.zip
             extra_options: >-
               -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake"
@@ -61,7 +61,7 @@ jobs:
             os: ubuntu-22.04
             build_type: "Release"
             extra_options: "-G Ninja -DCMAKE_INSTALL_PREFIX=/usr"
-            release: true
+            release: false
             package_name: "linux_gcc"
             shell: bash
             artifact-path: build/*.appimage
