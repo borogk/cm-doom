@@ -39,6 +39,12 @@ This approach should reduce any risk of messing up existing functionality.
 [i_video.c](../../prboom2/src/SDL/i_video.c)
 - `I_UpdateVideoMode()` function should check for `-cman_headless` flag before passing init flags into `SDL_CreateWindow()`
 
+### Freeaim
+
+[excmd.c](../../prboom2/src/dsda/excmd.c)
+- `cman.h` should be included
+- `dsda_FreeAim()` should check `CMAN_Enabled()` as the very first thing to always enable freeaim when loading a camera
+
 ### CLI arguments integration
 
 [args.c](../../prboom2/src/dsda/args.c),
