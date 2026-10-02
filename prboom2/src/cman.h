@@ -19,6 +19,7 @@
 #define __CMAN__
 #endif
 
+int CMAN_Enabled();
 int CMAN_Ticker();
 void CMAN_Init();
 int CMAN_SkipTics();

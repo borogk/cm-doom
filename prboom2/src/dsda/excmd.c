@@ -26,6 +26,8 @@
 
 #include "excmd.h"
 
+#include "cman.h"
+
 static dboolean excmd_enabled;
 static dboolean casual_excmd_features;
 
@@ -65,6 +67,9 @@ dboolean dsda_AllowJumping(void) {
 }
 
 dboolean dsda_FreeAim(void) {
+  if (CMAN_Enabled())
+    return true;
+
   if (!allow_incompatibility && !dsda_AllowCasualExCmdFeatures())
     return false;
 

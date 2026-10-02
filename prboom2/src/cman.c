@@ -361,6 +361,12 @@ void CMAN_LevelStart()
     dsda_SkipToLogicTic(true_logictic + cman_skiptics);
 }
 
+// Returns true if Cameraman is enabled
+int CMAN_Enabled()
+{
+  return cman.delay >= 0;
+}
+
 // Meant to be called every gametic from P_WalkTicker.
 // Returns true when Cameraman is engaged, this should tell P_WalkTicker back the camera control is overridden.
 int CMAN_Ticker()
