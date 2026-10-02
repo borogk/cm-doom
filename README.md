@@ -9,9 +9,9 @@ It also allows saving **camera profiles** as separate files. These camera profil
 
 | File name                                                                                                                                    | Platform |
 |----------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| [cm-doom-1.1.0-win-x64.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-win-x64.zip)                     | Windows  |
-| [cm-doom-1.1.0-linux-x86_64.appimage](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-linux-x86_64.appimage) | Linux    |
-| [cm-doom-1.1.0-mac-uni.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha1/cm-doom-1.1.0-mac-uni.zip)                     | macOS    |
+| [cm-doom-1.1.0-win-x64.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha2/cm-doom-1.1.0-win-x64.zip)                     | Windows  |
+| [cm-doom-1.1.0-linux-x86_64.appimage](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha2/cm-doom-1.1.0-linux-x86_64.appimage) | Linux    |
+| [cm-doom-1.1.0-mac-uni.zip](https://github.com/borogk/cm-doom/releases/download/v1.1.0-alpha2/cm-doom-1.1.0-mac-uni.zip)                     | macOS    |
 
 ## How to use
 
