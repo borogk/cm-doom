@@ -31,7 +31,9 @@ Quick start example:
 cm-doom -iwad DOOM2.WAD -cl 2 -warp 1 -cman export-0001.cman
 ```
 
-More information can be found on the [How to use cm-doom (advanced)](docs/cm-doom/how_to_use_advanced.md) page. 
+> [!TIP]
+> See more on the [How to use cm-doom (advanced)](docs/cm-doom/how_to_use_advanced.md) page.
+> It's recommended to read that document to get the most out of using cm-doom.
 
 ## Advantages
 

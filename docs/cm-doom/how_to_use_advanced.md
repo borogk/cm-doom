@@ -1,9 +1,5 @@
 # How to use cm-doom (advanced)
 
-> [!TIP]
-> It's recommended to read this document to get the most out of using cm-doom.
-> Best to read the sections in order, as they build on each other. 
-
 ## CLI arguments reference
 
 cm-doom introduces a few CLI arguments on top of DSDA-Doom ones:
